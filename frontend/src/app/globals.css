@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Backgrounds */
+  --bg-primary: #0a0a0f; /* main background (dark blue/black) */
+  --bg-secondary: #0d121c; /* cards */
+  --bg-tertiary: #334155; /* inputs */
+
+  /* Text */
+  --text-primary: #f1f5f9; /* main text (white-ish) */
+  --text-secondary: #94a3b8; /* muted text */
+
+  /* Borders */
+  --border-color: #475569;
+
+  /* Accent */
+  --accent: #078e68; /* button / highlight */
+  --accent-hover: #099970;
+
+  /* Error */
+  --error: #ef4444;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Typography system — use these classes only (no random text-xl / text-sm) */
+@layer components {
+  .text-display {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text-primary);
+  }
+
+  .text-heading {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .text-subheading {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .text-body {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 400;
+    color: var(--text-primary);
+  }
+
+  .text-muted {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  .text-label {
+    font-size: 0.875rem;
+    line-height: 1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .text-error {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    color: var(--error);
+  }
+
+  /* Primary actions — same scale as body, medium weight; set text color on the element (e.g. text-white) */
+  .text-button {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 500;
+  }
+
+  /* Inputs: line-height matches height so placeholder & text sit on the optical center line */
+  .field-input {
+    @apply block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 text-[var(--text-primary)] caret-[var(--accent)] outline-none ring-0 placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-0;
+    height: 2.75rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 1rem;
+    line-height: 2.75rem;
+  }
+}
+
+/* Keep field look when browser autofill / password manager applies styles (Chrome, Edge, Safari) */
+.field-input:-webkit-autofill,
+.field-input:-webkit-autofill:hover,
+.field-input:-webkit-autofill:focus,
+.field-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--accent);
+  box-shadow: 0 0 0 1000px var(--bg-primary) inset;
+  border-color: var(--border-color);
+  transition: background-color 99999s ease-out 0s;
+}
