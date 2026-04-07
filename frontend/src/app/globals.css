@@ -33,6 +33,7 @@ body {
   color: var(--text-primary);
 }
 
+
 /* Typography system — use these classes only (no random text-xl / text-sm) */
 @layer components {
   .text-display {
