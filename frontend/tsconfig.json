@@ -24,6 +24,7 @@
     ],
     "types": ["node", "react", "react-dom"],
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": [
         "./src/*"
