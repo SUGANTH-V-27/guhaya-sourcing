@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import {
   ShoppingCart,
@@ -77,11 +78,18 @@ const MODEL: ModelData = {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function CategoryCard({ category }: { category: FolderCategory }) {
+function CategoryCard({
+  category,
+  onOpen,
+}: {
+  category: FolderCategory;
+  onOpen: (categoryId: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <button
+      onClick={() => onOpen(category.id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={[
@@ -194,6 +202,24 @@ export default function ModelFolderPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = React.use(params);
+  const router = useRouter();
+
+  function openCategory(categoryId: string) {
+    // Only wire routes that exist right now
+    switch (categoryId) {
+      case "purchase-orders":
+        router.push("/purchase-orders");
+        return;
+      case "model-documentations":
+        router.push("/models/modeldoc");
+        return;
+      case "artwork":
+        router.push("/models/artwork");
+        return;
+      default:
+        return;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-black font-sans">
@@ -228,7 +254,7 @@ export default function ModelFolderPage({
         >
           {/* 8 category cards */}
           {CATEGORIES.map((cat) => (
-            <CategoryCard key={cat.id} category={cat} />
+            <CategoryCard key={cat.id} category={cat} onOpen={openCategory} />
           ))}
 
           {/* Model preview — spans all rows on column 4 */}
