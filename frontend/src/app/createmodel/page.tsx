@@ -48,107 +48,106 @@ export default function GuhayaUI() {
     "Shipment Type": ["Air", "Sea"],
   };
 
+  // smaller + consistent inputs
+  const baseInput =
+    "w-full h-8 bg-[#1a1a1a] border border-[#00BFA5]/60 px-2 text-xs rounded focus:outline-none focus:ring-1 focus:ring-[#00BFA5]/60";
+
   const renderField = (label: string) => {
     if (selectFields[label]) {
       return (
         <div className="relative">
-          <select className="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded pr-8">
+          <select className={`appearance-none ${baseInput} pr-6`}>
             <option value="">{label}</option>
             {selectFields[label].map((opt) => (
               <option key={opt}>{opt}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+
+          <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center">
+            <ChevronDown className="text-gray-400" size={12} />
+          </span>
         </div>
       );
     }
 
-    return (
-      <input
-        placeholder={label}
-        className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-      />
-    );
+    return <input placeholder={label} className={baseInput} />;
   };
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white">
 
-      {/* HEADER */}
-      <div className="bg-[#17b3a3] px-8 py-3 flex justify-between">
-        <h1 className="text-lg font-semibold">Guhaya Sourcing</h1>
-        <p className="text-sm">merch1@mrsgarments.com</p>
+      <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
+        <h1 className="text-white text-lg font-semibold">
+          Guhaya Sourcing
+        </h1>
+
+        <div className="flex items-center gap-3 text-white text-sm">
+          merch1@mrsgarments.com
+          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
+            <span className="text-[#00BFA5] text-xs font-bold">M</span>
+          </div>
+        </div>
       </div>
 
       <div className="p-8 space-y-10">
 
-        {/* MODEL SECTION */}
-        <div className="flex gap-12">
+        {/* MODEL DETAILS */}
+        <div>
+          <h2 className="mb-5 text-gray-300">Model Details</h2>
 
-          {/* LEFT: NAME + IMAGE */}
-          <div className="w-64 flex flex-col gap-6">
-            <input
-              placeholder="Model Name"
-              className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-            />
+          {/* LEFT + RIGHT LAYOUT */}
+          <div className="flex gap-10 items-start">
 
-            <label className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl h-52 flex flex-col items-center justify-center cursor-pointer hover:border-[#17b3a3]">
-              <Upload size={20} className="text-gray-400" />
-              <span className="text-xs text-gray-500 mt-2">Upload Model</span>
-              <input type="file" className="hidden" />
-            </label>
-          </div>
+            {/* LEFT SIDE */}
+            <div className="flex flex-col gap-4 w-60">
+              <input placeholder="Model Name" className={baseInput} />
 
-          {/* RIGHT: DETAILS */}
-          <div className="flex-1 grid grid-cols-4 gap-6">
+              <label className="w-full h-36 bg-[#1a1a1a] border border-[#00BFA5]/60 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#00BFA5]">
+                <Upload size={16} className="text-gray-400" />
+                <span className="text-[10px] text-gray-500 mt-1">Upload</span>
+                <input type="file" className="hidden" />
+              </label>
+            </div>
 
-            {[
-              "Model No",
-              "Factory",
-              "Season",
-              "Intake",
-              "Product Group",
-              "Sub-class",
-              "Buyer",
-              "Buyer Assistant",
-              "Price",
-              "Payment Terms",
-              "Inco Terms",
-              "Shipment Type",
-            ].map((label) => (
-              <div key={label}>{renderField(label)}</div>
-            ))}
+            {/* RIGHT SIDE FORM */}
+            <div className="flex-1 grid grid-cols-4 gap-6">
+              {[
+                "Model No",
+                "Factory",
+                "Season",
+                "Intake",
+                "Product Group",
+                "Sub-class",
+                "Buyer",
+                "Buyer Assistant",
+                "Price",
+                "Payment Terms",
+                "Inco Terms",
+                "Shipment Type",
+              ].map((label) => (
+                <div key={label}>{renderField(label)}</div>
+              ))}
 
-            <input
-              placeholder="PO Date"
-              className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-            />
+              <input placeholder="PO Date" className={baseInput} />
+              <input placeholder="Order Qty" className={baseInput} />
+              <input placeholder="Order Value" className={baseInput} />
 
-            <input
-              placeholder="Order Qty"
-              className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-            />
-
-            <input
-              placeholder="Order Value"
-              className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-            />
-
-            <input
-              type="number"
-              value={sizes}
-              onChange={(e) => handleSizeChange(Number(e.target.value))}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-2 rounded"
-            />
+              <input
+                type="number"
+                value={sizes}
+                onChange={(e) => handleSizeChange(Number(e.target.value))}
+                className={baseInput}
+              />
+            </div>
           </div>
         </div>
 
-        {/* QUANTITY TABLE */}
+        {/* QUANTITY */}
         <div>
           <h2 className="mb-3 text-gray-300">Quantity Details</h2>
 
           <div
-            className="grid gap-3 mb-3 text-sm text-gray-400"
+            className="grid gap-6 mb-3 text-xs text-gray-400"
             style={{
               gridTemplateColumns: `repeat(${sizes + 5}, minmax(0,1fr))`,
             }}
@@ -168,50 +167,40 @@ export default function GuhayaUI() {
           {rows.map((row, rowIndex) => (
             <div
               key={rowIndex}
-              className="grid gap-3 mb-2"
+              className="grid gap-6 mb-2"
               style={{
                 gridTemplateColumns: `repeat(${sizes + 5}, minmax(0,1fr))`,
               }}
             >
-              <input className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded" />
-              <input className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded" />
-              <input className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded" />
+              <input className={baseInput} />
+              <input className={baseInput} />
+              <input className={baseInput} />
 
               {row.sizes.map((_: any, i: number) => (
-                <input
-                  key={i}
-                  className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded"
-                />
+                <input key={i} className={baseInput} />
               ))}
 
-              <input className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded" />
-              <input className="bg-[#1a1a1a] border border-[#2a2a2a] p-2 rounded" />
+              <input className={baseInput} />
+              <input className={baseInput} />
 
               <button onClick={() => removeRow(rowIndex)}>
-                <Trash2 size={16} className="text-gray-400 hover:text-red-400" />
+                <Trash2 size={12} className="text-gray-400 hover:text-red-400" />
               </button>
             </div>
           ))}
 
           <button
             onClick={addRow}
-            className="mt-4 bg-[#17b3a3] text-black px-4 py-2 rounded flex items-center gap-2"
+            className="mt-4 bg-[#17b3a3] text-black px-4 py-2 rounded flex items-center gap-2 text-sm"
           >
-            <Plus size={14} /> Add Order
+            <Plus size={12} /> Add Order
           </button>
         </div>
 
-        {/* FOOTER */}
         <div className="flex justify-end gap-4">
-          <button className="border border-gray-600 px-6 py-2 rounded">
-            DELETE
-          </button>
-          <button className="border border-gray-600 px-6 py-2 rounded">
-            EDIT
-          </button>
-          <button className="bg-[#17b3a3] text-black px-6 py-2 rounded">
-            CREATE MODEL
-          </button>
+          <button className="border border-gray-600 px-6 py-2 rounded text-sm">DELETE</button>
+          <button className="border border-gray-600 px-6 py-2 rounded text-sm">EDIT</button>
+          <button className="bg-[#17b3a3] text-black px-6 py-2 rounded text-sm">CREATE MODEL</button>
         </div>
       </div>
     </main>
