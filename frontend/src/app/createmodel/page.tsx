@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, Trash2, Upload, ChevronDown } from "lucide-react";
 
 export default function GuhayaUI() {
   const [sizes, setSizes] = useState(5);
 
-  const [rows, setRows] = useState<any[]>([
-    createRow(5),
-  ]);
+  const [rows, setRows] = useState<any[]>([createRow(5)]);
 
   function createRow(sizeCount: number) {
     return {
@@ -27,8 +25,21 @@ export default function GuhayaUI() {
     );
   };
 
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
   const addRow = () => {
-    setRows([...rows, createRow(sizes)]);
+    setRows((prev) => {
+      const updated = [...prev, createRow(sizes)];
+
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100);
+
+      return updated;
+    });
   };
 
   const removeRow = (index: number) => {
@@ -48,7 +59,6 @@ export default function GuhayaUI() {
     "Shipment Type": ["Air", "Sea"],
   };
 
-  // smaller + consistent inputs
   const baseInput =
     "w-full h-8 bg-[#1a1a1a] border border-[#00BFA5]/60 px-2 text-xs rounded focus:outline-none focus:ring-1 focus:ring-[#00BFA5]/60";
 
@@ -75,11 +85,8 @@ export default function GuhayaUI() {
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] text-white">
-
-      <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
-        <h1 className="text-white text-lg font-semibold">
-          Guhaya Sourcing
-        </h1>
+      <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center">
+        <h1 className="text-white text-lg font-semibold">Guhaya Sourcing</h1>
 
         <div className="flex items-center gap-3 text-white text-sm">
           merch1@mrsgarments.com
@@ -90,15 +97,12 @@ export default function GuhayaUI() {
       </div>
 
       <div className="p-8 space-y-10">
-
         {/* MODEL DETAILS */}
         <div>
           <h2 className="mb-5 text-gray-300">Model Details</h2>
 
-          {/* LEFT + RIGHT LAYOUT */}
           <div className="flex gap-10 items-start">
-
-            {/* LEFT SIDE */}
+            {/* LEFT */}
             <div className="flex flex-col gap-4 w-60">
               <input placeholder="Model Name" className={baseInput} />
 
@@ -109,7 +113,7 @@ export default function GuhayaUI() {
               </label>
             </div>
 
-            {/* RIGHT SIDE FORM */}
+            {/* RIGHT */}
             <div className="flex-1 grid grid-cols-4 gap-6">
               {[
                 "Model No",
@@ -188,6 +192,8 @@ export default function GuhayaUI() {
               </button>
             </div>
           ))}
+
+          <div ref={bottomRef} />
 
           <button
             onClick={addRow}
