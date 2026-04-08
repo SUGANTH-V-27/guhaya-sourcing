@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { BrandCard } from "@/components/cards/BrandCard";
 import { brands } from "@/lib/mock-data";
-import type { Brand } from "@/types/brand";
+import type { Brand } from "../../../types/brand";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -98,10 +99,16 @@ export default function BrandListingPage() {
             variants={itemVariants}
             className="inline-flex backdrop-blur-xl bg-white/5 border border-emerald-400/20 rounded-full px-8 py-4 mb-12 shadow-lg shadow-emerald-500/10 gap-4"
           >
-            <button className="inline-flex items-center gap-2 text-white/90 hover:text-emerald-300 transition-colors font-semibold text-sm tracking-wide">
+            <Link
+              href="/createbrand"
+              className="inline-flex items-center gap-2 text-white/90 hover:text-emerald-300 transition-colors font-semibold text-sm tracking-wide"
+            >
               <span>+</span> CREATE BRAND
-            </button>
-            <button className="inline-flex items-center gap-2 text-white/90 hover:text-emerald-300 transition-colors font-semibold text-sm tracking-wide">
+            </Link>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 text-white/60 hover:text-emerald-300 transition-colors font-semibold text-sm tracking-wide"
+            >
               EDIT BRAND
             </button>
             <div className="w-px bg-white/10" />
@@ -237,9 +244,12 @@ export default function BrandListingPage() {
               </div>
             </div>
 
-            <button className="w-full mt-8 py-3 bg-emerald-500/80 hover:bg-emerald-500 border border-emerald-400/40 rounded-lg text-black font-semibold tracking-wide transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40">
+            <Link
+              href={selectedBrand ? `/brands/${selectedBrand.id}` : "/models"}
+              className="block w-full mt-8 py-3 text-center bg-emerald-500/80 hover:bg-emerald-500 border border-emerald-400/40 rounded-lg text-black font-semibold tracking-wide transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40"
+            >
               View Models
-            </button>
+            </Link>
           </motion.div>
         </div>
       )}

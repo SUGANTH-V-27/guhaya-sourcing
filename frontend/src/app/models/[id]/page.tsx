@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState } from "react";
 import {
   ShoppingCart,
@@ -239,6 +240,15 @@ export default function ModelFolderPage({
           >
             <ModelPreviewCard model={MODEL} />
           </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Link
+            href={`/createmodel?id=${id ?? MODEL.code}`}
+            className="inline-flex items-center justify-center rounded-md bg-[#00BFA5] px-5 py-2 text-sm font-semibold text-black hover:bg-[#0cae9d]"
+          >
+            Create model
+          </Link>
         </div>
       </main>
     </div>
