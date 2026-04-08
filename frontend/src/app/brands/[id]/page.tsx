@@ -31,7 +31,7 @@ export default function BrandModelsPage() {
       <header className="bg-teal-500 text-white px-8 py-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Guhaya Sourcing</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm">{user?.email || "merch1@mrsgarments.com"}</span>
+          <span className="text-sm">{user?.email ?? "Login"}</span>
           <Link href="/login">
             <img src="/login_icon.png" alt="Login" className="h-6 w-6 object-contain" />
           </Link>
