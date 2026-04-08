@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { models } from "@/lib/mock-data";
 import type { Model } from "../../../types/model";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function ModelsPage() {
+  const user = useAuthStore((state) => state.user);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredModels = useMemo(() => {
@@ -21,7 +23,7 @@ export default function ModelsPage() {
       <header className="bg-teal-500 text-white px-8 py-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Guhaya Sourcing</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm">merch1@mrsgarments.com</span>
+          <span className="text-sm">{user?.email || "merch1@mrsgarments.com"}</span>
           <Link href="/login">
             <img src="/login_icon.png" alt="Login" className="h-6 w-6 object-contain" />
           </Link>

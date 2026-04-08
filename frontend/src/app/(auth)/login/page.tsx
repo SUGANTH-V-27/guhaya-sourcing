@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAuthStore } from "../../../../store/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
+  const login = useAuthStore((state) => state.login);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +20,7 @@ export default function LoginPage() {
     try {
       // TODO: replace with real auth call; on success, go to brands
       await new Promise((r) => setTimeout(r, 400));
+      login(email);
       router.push("/brands");
     } catch {
       setError("Something went wrong. Try again.");

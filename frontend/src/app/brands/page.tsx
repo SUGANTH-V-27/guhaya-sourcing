@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { brands } from "../../lib/mock-data";
 import type { Brand } from "../../../types/brand";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function BrandListingPage() {
+  const user = useAuthStore((state) => state.user);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(5);
 
@@ -28,7 +30,7 @@ export default function BrandListingPage() {
       <header className="bg-teal-500 text-white px-8 py-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Guhaya Sourcing</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm">merch1@mrsgarments.com</span>
+          <span className="text-sm">{user?.email || "merch1@mrsgarments.com"}</span>
           <Link href="/login">
             <button className="flex items-center justify-center">
               <img src="/login_icon.png" alt="Login" className="h-6 w-6 object-contain" />
