@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { Brand } from "@/types/brand";
+import type { Brand } from "../../../types/brand";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },

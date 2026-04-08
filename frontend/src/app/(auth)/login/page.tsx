@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,8 +16,9 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
+      // TODO: replace with real auth call; on success, go to brands
       await new Promise((r) => setTimeout(r, 400));
-      console.log("login", { email });
+      router.push("/brands");
     } catch {
       setError("Something went wrong. Try again.");
     } finally {
@@ -29,7 +32,10 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-4">
         {error ? (
-          <p className="text-error rounded-lg border border-[var(--error)] bg-[var(--bg-primary)] px-3 py-2" role="alert">
+          <p
+            className="text-error rounded-lg border border-[var(--error)] bg-[var(--bg-primary)] px-3 py-2"
+            role="alert"
+          >
             {error}
           </p>
         ) : null}
@@ -68,7 +74,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <p className="text-muted text-center">
+        <p className="text-muted text-right">
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"

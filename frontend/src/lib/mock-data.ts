@@ -1,5 +1,5 @@
-import type { Brand } from "@/types/brand";
-import type { Model } from "@/types/model";
+import type { Brand } from "../../types/brand";
+import type { Model } from "../../types/model";
 
 export const brands: Brand[] = [
   {

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import type { Brand } from "@/types/brand";
+import type { Brand } from "../../types/brand";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
