@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -49,12 +50,12 @@ export default function BrandModelsPage() {
                 Browse the current model shipment pipeline, update status, and review delivery timing.
               </p>
             </div>
-            <button
-              type="button"
+            <Link
+              href={`/createmodel?brandId=${brandId}`}
               className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
             >
               Create model
-            </button>
+            </Link>
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
