@@ -1,12 +1,11 @@
 "use client";
 
-import { JSX, useState } from "react";
+import { JSX, useState, useRef } from "react";
 import { Plus, Minus, Upload } from "lucide-react";
 
 export default function Page(): JSX.Element {
   return (
     <main className="h-screen bg-black flex flex-col overflow-hidden">
-      {/* Top Bar */}
       <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
         <h1 className="text-white text-lg font-semibold">
           Guhaya Sourcing
@@ -20,11 +19,9 @@ export default function Page(): JSX.Element {
         </div>
       </div>
 
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-8">
         <CombinedSection />
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 pt-6">
           <button className="border border-gray-600 text-gray-300 rounded-md px-6 py-2 text-sm">
             EDIT
@@ -61,6 +58,10 @@ type FactoryRow = {
 };
 
 function CombinedSection(): JSX.Element {
+  const buyerEndRef = useRef<HTMLDivElement | null>(null);
+  
+  const factoryEndRef = useRef<HTMLDivElement | null>(null);
+
   const [brandName, setBrandName] = useState<string>("");
 
   const [brandColumns, setBrandColumns] = useState<BrandColumns>({
@@ -94,9 +95,15 @@ function CombinedSection(): JSX.Element {
   ];
 
   const addBrandItem = (key: keyof BrandColumns) => {
-    setBrandColumns({
-      ...brandColumns,
-      [key]: [...brandColumns[key], ""],
+    setBrandColumns((prev) => {
+      const updated = {
+        ...prev,
+        [key]: [...prev[key], ""],
+      };
+
+      
+
+      return updated;
     });
   };
 
@@ -107,23 +114,38 @@ function CombinedSection(): JSX.Element {
     setBrandColumns({ ...brandColumns, [key]: updated });
   };
 
-  const handleBrandChange = (key: keyof BrandColumns, index: number, value: string) => {
+  const handleBrandChange = (
+    key: keyof BrandColumns,
+    index: number,
+    value: string
+  ) => {
     const updated = [...brandColumns[key]];
     updated[index] = value;
     setBrandColumns({ ...brandColumns, [key]: updated });
   };
 
   const addRow = () => {
-    setRows([
-      ...rows,
-      {
-        department: "",
-        subclass: "",
-        buyer: "",
-        assistant: "",
-        manager: "",
-      },
-    ]);
+    setRows((prev) => {
+      const updated = [
+        ...prev,
+        {
+          department: "",
+          subclass: "",
+          buyer: "",
+          assistant: "",
+          manager: "",
+        },
+      ];
+
+      setTimeout(() => {
+        buyerEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100);
+
+      return updated;
+    });
   };
 
   const removeRow = (index: number) => {
@@ -133,17 +155,29 @@ function CombinedSection(): JSX.Element {
     setRows(updated);
   };
 
-  const handleChange = (index: number, field: keyof BuyerRow, value: string) => {
+  const handleChange = (
+    index: number,
+    field: keyof BuyerRow,
+    value: string
+  ) => {
     const updated = [...rows];
     updated[index][field] = value;
     setRows(updated);
   };
 
   const addFactoryRow = () => {
-    setFactoryRows([
-      ...factoryRows,
-      { code: "", name: "", address: "" },
-    ]);
+    setFactoryRows((prev) => {
+      const updated = [...prev, { code: "", name: "", address: "" }];
+
+      setTimeout(() => {
+        factoryEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100);
+
+      return updated;
+    });
   };
 
   const removeFactoryRow = (index: number) => {
@@ -153,7 +187,11 @@ function CombinedSection(): JSX.Element {
     setFactoryRows(updated);
   };
 
-  const handleFactoryChange = (index: number, field: keyof FactoryRow, value: string) => {
+  const handleFactoryChange = (
+    index: number,
+    field: keyof FactoryRow,
+    value: string
+  ) => {
     const updated = [...factoryRows];
     updated[index][field] = value;
     setFactoryRows(updated);
@@ -183,6 +221,7 @@ function CombinedSection(): JSX.Element {
         <h2 className="text-sm text-gray-300 mb-5">Brand Details</h2>
 
         <div className="grid grid-cols-[180px_1fr] gap-8">
+          {/* LEFT */}
           <div className="flex flex-col gap-4">
             <input
               value={brandName}
@@ -198,6 +237,7 @@ function CombinedSection(): JSX.Element {
             </label>
           </div>
 
+          {/* RIGHT */}
           <div className="grid grid-cols-5 gap-6">
             {brandConfig.map(({ key, label }) => (
               <div key={key}>
@@ -233,11 +273,13 @@ function CombinedSection(): JSX.Element {
                 </div>
               </div>
             ))}
+
+            
           </div>
         </div>
       </div>
 
-      {/* DEPARTMENT & BUYER DETAILS */}
+      {/* BUYER DETAILS */}
       <div>
         <h2 className="text-sm text-gray-300 mb-5">
           Department & Buyer Details
@@ -274,6 +316,8 @@ function CombinedSection(): JSX.Element {
               </button>
             </div>
           ))}
+
+          <div ref={buyerEndRef} />
         </div>
 
         <div className="pt-4 flex justify-start">
@@ -293,7 +337,11 @@ function CombinedSection(): JSX.Element {
         </h2>
 
         <div className="grid grid-cols-4 gap-6 mb-3">
-          {["Factory Code", "Factory", "Factory Address"].map((h) => (
+          {[
+            "Factory Code",
+            "Factory",
+            "Factory Address",
+          ].map((h) => (
             <p key={h} className="text-xs text-gray-400">
               {h}
             </p>
@@ -306,17 +354,23 @@ function CombinedSection(): JSX.Element {
             <div key={i} className="grid grid-cols-4 gap-6">
               <input
                 value={row.code}
-                onChange={(e) => handleFactoryChange(i, "code", e.target.value)}
+                onChange={(e) =>
+                  handleFactoryChange(i, "code", e.target.value)
+                }
                 className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
               />
               <input
                 value={row.name}
-                onChange={(e) => handleFactoryChange(i, "name", e.target.value)}
+                onChange={(e) =>
+                  handleFactoryChange(i, "name", e.target.value)
+                }
                 className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
               />
               <input
                 value={row.address}
-                onChange={(e) => handleFactoryChange(i, "address", e.target.value)}
+                onChange={(e) =>
+                  handleFactoryChange(i, "address", e.target.value)
+                }
                 className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
               />
 
@@ -328,6 +382,8 @@ function CombinedSection(): JSX.Element {
               </button>
             </div>
           ))}
+
+          <div ref={factoryEndRef} />
         </div>
 
         <div className="pt-4 flex justify-start">
@@ -343,3 +399,4 @@ function CombinedSection(): JSX.Element {
     </div>
   );
 }
+
