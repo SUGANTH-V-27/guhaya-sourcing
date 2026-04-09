@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, ChangeEvent, FormEvent } from "react";
 
+/* ───────── TYPES ───────── */
 type TechPackEntry = {
   techPackName: string;
   receivedDate: string;
@@ -21,340 +22,404 @@ type ModelDoc = {
   designer: string;
   graphic: string;
   technologist: string;
+  image: File | null; 
 };
 
 const emptyTechPack = (): TechPackEntry => ({
-  techPackName: '',
-  receivedDate: '',
-  remarks: '',
+  techPackName: "",
+  receivedDate: "",
+  remarks: "",
   commentsFile: null,
 });
 
-/* ── ADD file button ── */
-type AddFileButtonProps = {
+/* ───────── DESIGN SYSTEM ───────── */
+const baseInput =
+  "w-full min-w-0 h-8 bg-[#1a1a1a] border border-[#00BFA5]/60 px-2 text-xs rounded focus:outline-none focus:ring-1 focus:ring-[#00BFA5]/60 text-white [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-70";
+const baseTextarea =
+  "w-full bg-[#1a1a1a] border border-[#00BFA5]/60 px-2 py-2 text-xs rounded focus:outline-none focus:ring-1 focus:ring-[#00BFA5]/60 text-white";
+
+const primaryBtn =
+  "bg-[#17b3a3] text-black px-4 py-2 rounded text-sm hover:bg-[#13a394] transition";
+
+const outlineBtn =
+  "border border-[#00BFA5]/60 text-white px-4 py-2 rounded text-sm hover:bg-[#00BFA5]/10 transition";
+
+const dangerBtn = "text-gray-400 hover:text-red-400 text-xs";
+
+const commentGrid =
+  "grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_1fr_1fr_0.7fr] gap-4";
+
+const techPackGrid =
+  "grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-4 items-start justify-items-start";
+
+/* ───────── FILE BUTTON ───────── */
+const AddFileButton = ({
+  inputId,
+  onChange,
+}: {
   inputId: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-};
-
-const AddFileButton = ({ inputId, onChange }: AddFileButtonProps) => (
+}) => (
   <>
     <label
       htmlFor={inputId}
-      className="cursor-pointer inline-flex items-center gap-1 rounded-lg border-2 border-cyan-400 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-cyan-300 transition-colors"
+      className="cursor-pointer inline-flex items-center gap-1 rounded border border-[#00BFA5]/60 px-3 py-1 text-xs text-white hover:bg-[#00BFA5]/10 transition"
     >
-      ADD 📤
+      ADD
     </label>
     <input id={inputId} type="file" onChange={onChange} className="hidden" />
   </>
 );
 
-/* ── File operations row ── */
-type FileOpsProps = {
-  file: File | null;
-  onDownload: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-};
-
-const FileOps = ({ file, onDownload, onEdit, onDelete }: FileOpsProps) => (
-  <div className="flex items-center gap-2 flex-wrap">
-    <span className="text-xs text-gray-500">Attached:</span>
+/* ───────── FILE OPS ───────── */
+const FileOps = ({ file, onDownload, onEdit, onDelete }: any) => (
+  <div className="flex items-center gap-2 flex-wrap text-xs">
     {file ? (
       <>
-        <span className="text-xs text-gray-700 truncate max-w-[120px]">{file.name}</span>
-        <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-        <button type="button" onClick={onDownload} title="Download" className="group relative text-cyan-500 hover:text-cyan-700 text-base">
-          📥
-          <span className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] rounded px-1 py-0.5 whitespace-nowrap z-10">Download</span>
+        <span className="text-gray-300 truncate max-w-[120px]">
+          {file.name}
+        </span>
+        <button onClick={onDownload}>📥</button>
+        <button onClick={onEdit}>✏️</button>
+        <button onClick={onDelete} className={dangerBtn}>
+          ✕
         </button>
-        <button type="button" onClick={onEdit} title="Edit" className="group relative text-cyan-500 hover:text-cyan-700 text-base">
-          ✏️
-          <span className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] rounded px-1 py-0.5 whitespace-nowrap z-10">Edit</span>
-        </button>
-        <button type="button" onClick={onDelete} title="Remove file" className="text-red-500 hover:text-red-700 font-bold text-xs">✕</button>
       </>
     ) : (
-      <span className="text-xs text-gray-400">No file</span>
+      <span className="text-gray-500">No file</span>
     )}
   </div>
 );
 
-/* ══════════════════════════════════════════════ */
-/*               MAIN COMPONENT                  */
-/* ══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════ */
+/*               MAIN UI                  */
+/* ═══════════════════════════════════════ */
 
-const ModelDocumentationForm = () => {
+export default function ModelDocumentationForm() {
   const [data, setData] = useState<ModelDoc>({
-    modelId: '006GS',
-    techPacks: [
-      {
-        techPackName: '1st Tech Pack',
-        receivedDate: '2026-01-25',
-        remarks: '',
-        commentsFile: null,
-      },
-    ],
-    sample: '',
-    submission: '',
-    sentDate: '',
-    commentsDate: '',
+    modelId: "006GS",
+    techPacks: [emptyTechPack()],
+    sample: "",
+    submission: "",
+    sentDate: "",
+    commentsDate: "",
     commentsFile: null,
-    commentsRemarks: '',
-    designer: '',
-    graphic: '',
-    technologist: '',
+    commentsRemarks: "",
+    designer: "",
+    graphic: "",
+    technologist: "",
+    image: null, 
   });
 
-  /* ── Tech pack row helpers ── */
-  const updateTechPack = (index: number, patch: Partial<TechPackEntry>) =>
-    setData((prev) => {
-      const techPacks = [...prev.techPacks];
-      techPacks[index] = { ...techPacks[index], ...patch };
-      return { ...prev, techPacks };
+  /* ───────── HELPERS ───────── */
+  const updateTechPack = (i: number, patch: Partial<TechPackEntry>) => {
+    const updated = [...data.techPacks];
+    updated[i] = { ...updated[i], ...patch };
+    setData({ ...data, techPacks: updated });
+  };
+
+  const handleFile = (i: number) => (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    updateTechPack(i, { commentsFile: file });
+    e.target.value = "";
+  };
+
+  const handleImage = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setData((prev) => ({ ...prev, image: file }));
+  };
+
+  const addRow = () =>
+    setData({ ...data, techPacks: [...data.techPacks, emptyTechPack()] });
+
+  const removeRow = (i: number) =>
+    setData({
+      ...data,
+      techPacks: data.techPacks.filter((_, idx) => idx !== i),
     });
 
-  const handleTechPackText =
-    (index: number) => (e: ChangeEvent<HTMLInputElement>) =>
-      updateTechPack(index, { [e.target.name]: e.target.value } as Partial<TechPackEntry>);
-
-  const handleTechPackFile =
-    (index: number) => (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] ?? null;
-      updateTechPack(index, { commentsFile: file });
-      e.target.value = '';
-    };
-
   const downloadFile = (file: File | null) => {
-    if (!file) return alert('No file attached');
+    if (!file) return;
     const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = file.name;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
-  const addTechPackRow = () =>
-    setData((prev) => ({ ...prev, techPacks: [...prev.techPacks, emptyTechPack()] }));
-
-  const removeTechPackRow = (index: number) =>
-    setData((prev) => ({
-      ...prev,
-      techPacks: prev.techPacks.filter((_, i) => i !== index),
-    }));
-
-  /* ── Model comments helpers ── */
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setData((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setData({ ...data, [e.target.name]: e.target.value });
   };
 
-  const handleCommentsFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setData((prev) => ({ ...prev, commentsFile: file }));
-    e.target.value = '';
-  };
-
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    console.log('Saved model docs', data);
-    alert('Form saved (UI only)');
+    console.log(data);
+    alert("Saved!");
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6 p-6 bg-white rounded-xl shadow-lg border">
+    <main className="min-h-screen bg-[#0f0f0f] text-white">
+      <form className="min-h-screen bg-[#0f0f0f] text-white max-w-7xl mx-auto p-8">
+        
+        <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
+          <h1 className="text-white text-lg font-semibold">
+            Guhaya Sourcing
+          </h1>
 
-      {/* ── MODEL DOCUMENTATION ── */}
-      <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3 border rounded-lg p-4">
-          <h2 className="text-2xl font-bold mb-4">MODEL DOCUMENTATION</h2>
+          <div className="flex items-center gap-3 text-white text-sm">
+            merch1@mrsgarments.com
+            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
+              <span className="text-[#00BFA5] text-xs font-bold">M</span>
+            </div>
+          </div>
+        </div>
 
-          {/* Header row */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 mb-1 text-xs font-semibold text-gray-500 px-1">
-            <span>Tech Pack Name</span>
-            <span>Received Date</span>
-            <span>Remarks</span>
-            <span>Attached File</span>
+        {/* ───── MAIN GRID ───── */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+          {/* ───── LEFT SECTION ───── */}
+          <section className="lg:col-span-3 bg-[#121212] border border-[#00BFA5]/20 rounded-lg p-6">
+            <h2 className="text-gray-300 mb-4">Model Documentation</h2>
+
+            
+                  <div className={`${techPackGrid} text-gray-400 text-xs text-left mb-2 `}>
+                    <span>Tech Pack</span>
+                    <span>Date</span>
+                    <span>Remarks</span>
+                    <span>File</span>
+                    <span></span>
+                  </div>
+
+                  {data.techPacks.map((tp, i) => (
+                    <div key={i} className={`${techPackGrid} text left items-start mb-3`}>
+                      
+                      <input
+                        className={`${baseInput} text-left`}
+                        value={tp.techPackName}
+                        onChange={(e) => updateTechPack(i, { techPackName: e.target.value })}
+                      />
+
+                      <input
+                        type="date"
+                        className={`${baseInput} text-left`}
+                        value={tp.receivedDate}
+                        onChange={(e) => updateTechPack(i, { receivedDate: e.target.value })}
+                      />
+
+                      <input
+                        className={`${baseInput} text-left`}
+                        value={tp.remarks}
+                        onChange={(e) => updateTechPack(i, { remarks: e.target.value })}
+                      />
+
+                      <div className="w-full min-w-0 overflow-hidden">
+                        <div className="space-y-1 truncate">
+                          <FileOps
+                            file={tp.commentsFile}
+                            onDownload={() => downloadFile(tp.commentsFile)}
+                            onEdit={() => {}}
+                            onDelete={() => updateTechPack(i, { commentsFile: null })}
+                          />
+                          <AddFileButton inputId={`f-${i}`} onChange={handleFile(i)} />
+                        </div>
+                      </div>
+
+                      <button type="button" onClick={() => removeRow(i)} className={`${outlineBtn} whitespace-nowrap shrink-0`}>
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                   
+
+                  <button type="button" onClick={addRow} className={primaryBtn}>
+                    + Add Tech Pack
+                  </button>
+            </section>
+
+
+                {/* ───── RIGHT MODEL CARD ───── */}
+                <aside className="bg-[#121212] border border-[#00BFA5]/20 rounded-lg p-5 flex flex-col gap-4">
+                  
+                  <div>
+                    <h3 className="text-white text-sm font-semibold">{data.modelId}</h3>
+                    <p className="text-xs text-gray-400 mt-1">25 Days to handover</p>
+                  </div>
+
+                  <label className="w-full h-48 bg-[#1a1a1a] border border-[#00BFA5]/60 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#00BFA5] transition overflow-hidden">
+                    
+                    {data.image ? (
+                      <img
+                        src={URL.createObjectURL(data.image)}
+                        alt="Model"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-gray-400 text-xs">Upload Image</span>
+                    )}
+
+                    <input type="file" className="hidden" onChange={handleImage} />
+                  </label>
+
+                </aside>
+              </div>  
+            
+
+
+              {/* MODEL COMMENTS */}
+        <section className="bg-[#121212] border border-[#00BFA5]/20 rounded-lg p-6 space-y-4">
+          <h2 className="text-gray-300">Model Comments</h2>
+
+          {/* HEADER */}
+          <div className= {`${commentGrid} text-gray-400 text-xs text-left`}>
+            <span>Sample</span>
+            <span>Submission</span>
+            <span>Sent Date</span>
+            <span>Comments Date</span>
+            <span>File</span>
+            <span>Designer</span>
+            <span>Graphic</span>
+            <span>Technologist</span>
             <span></span>
           </div>
 
-          {/* Tech pack rows */}
-          <div className="space-y-3">
-            {data.techPacks.map((tp, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 items-start"
-              >
-                {/* Tech Pack Name */}
-                <input
-                  name="techPackName"
-                  value={tp.techPackName}
-                  onChange={handleTechPackText(idx)}
-                  placeholder="Tech pack name"
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
-                />
+          {/* SINGLE ROW */}
+          <div className={`${commentGrid} items-start`}>
 
-                {/* Received Date */}
-                <input
-                  type="date"
-                  name="receivedDate"
-                  value={tp.receivedDate}
-                  onChange={handleTechPackText(idx)}
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
-                />
+            {/* Sample */}
+            <input
+              name="sample"
+              value={data.sample}
+              onChange={handleChange}
+              className={`${baseInput} text-left`}
+              placeholder="Sample"
+            />
 
-                {/* Remarks */}
-                <input
-                  name="remarks"
-                  value={tp.remarks}
-                  onChange={handleTechPackText(idx)}
-                  placeholder="Remarks"
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
-                />
+            {/* Submission */}
+            <input
+              name="submission"
+              value={data.submission}
+              onChange={handleChange}
+              className={`${baseInput} text-left`}
+              placeholder="Submission"
+            />
 
-                {/* Attached file */}
-                <div className="flex flex-col gap-1">
-                  {tp.commentsFile ? (
-                    <FileOps
-                      file={tp.commentsFile}
-                      onDownload={() => downloadFile(tp.commentsFile)}
-                      onEdit={() => alert('Edit: ' + tp.commentsFile!.name)}
-                      onDelete={() => updateTechPack(idx, { commentsFile: null })}
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Attached: No file</span>
-                      <AddFileButton
-                        inputId={`tp-file-${idx}`}
-                        onChange={handleTechPackFile(idx)}
-                      />
-                    </div>
-                  )}
-                  {/* show ADD button alongside file ops when file exists */}
-                  {tp.commentsFile && (
-                    <AddFileButton
-                      inputId={`tp-file-replace-${idx}`}
-                      onChange={handleTechPackFile(idx)}
-                    />
-                  )}
-                </div>
+            {/* Sent Date */}
+            <input
+              type="date"
+              name="sentDate"
+              value={data.sentDate}
+              onChange={handleChange}
+              className={`${baseInput} text-left`}
+            />
 
-                {/* Delete row */}
-                <button
-                  type="button"
-                  onClick={() => removeTechPackRow(idx)}
-                  title="Remove row"
-                  className="cursor-pointer inline-flex items-center gap-1 rounded-lg border-2 border-cyan-400 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-cyan-300 transition-colors"
-                >
-                  DELETE 🗑️
-                </button>
-              </div>
-            ))}
-          </div>
+            {/* Comments Date */}
+            <input
+              type="date"
+              name="commentsDate"
+              value={data.commentsDate}
+              onChange={handleChange}
+              className={`${baseInput} text-left`}
+            />
 
-          {/* ADD TECH PACK */}
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={addTechPackRow}
-              className="bg-cyan-400 text-black font-semibold px-4 py-2 rounded-md hover:bg-cyan-300 transition-colors text-sm"
-            >
-              ADD TECH PACK
-            </button>
-          </div>
-        </div>
-
-        {/* Model card */}
-        <aside className="border rounded-lg p-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-bold">{data.modelId}</h3>
-            <p className="text-sm text-black">25 Days to handover!</p>
-          </div>
-          <img
-            src="https://via.placeholder.com/180x220"
-            alt="Model"
-            className="mt-4 w-full object-cover rounded"
-          />
-        </aside>
-      </section>
-
-      {/* ── MODEL COMMENTS ── */}
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="text-2xl font-bold mb-4">MODEL COMMENTS</h2>
-
-        <div>
-          <label className="text-xs text-black">Sample</label>
-          <input name="sample" value={data.sample} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label className="text-xs text-black">Submission</label>
-          <input name="submission" value={data.submission} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label className="text-xs text-black">Sent Date</label>
-          <input type="date" name="sentDate" value={data.sentDate} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label className="text-xs text-black">Comments Date</label>
-          <input type="date" name="commentsDate" value={data.commentsDate} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label className="text-xs text-black block mb-1">Comments File</label>
-          <div className="flex items-center gap-2 flex-wrap">
-            <AddFileButton inputId="comments-file-main" onChange={handleCommentsFile} />
-            {data.commentsFile && (
+            {/* FILE */}
+            <div className="w-full max-w-full overflow-hidden">
+              <div className="space-y-1">
               <FileOps
                 file={data.commentsFile}
                 onDownload={() => downloadFile(data.commentsFile)}
-                onEdit={() => alert('Edit: ' + data.commentsFile!.name)}
-                onDelete={() => setData((prev) => ({ ...prev, commentsFile: null }))}
+                onEdit={() => {}}
+                onDelete={() =>
+                  setData((prev) => ({ ...prev, commentsFile: null }))
+                }
               />
-            )}
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs text-black block">Remarks</label>
-          <textarea name="commentsRemarks" value={data.commentsRemarks} onChange={handleChange} rows={3} className="w-full border-2 border-cyan-400 rounded-lg p-3" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-black">Designer</label>
-            <select name="designer" value={data.designer} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
-              <option value="">-</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="CONDITIONAL APPROVED">CONDITIONAL APPROVED</option>
-              <option value="REJECTED">REJECTED</option>
-              <option value="PENDING">PENDING</option>
+              <AddFileButton
+                inputId="comments-file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setData((prev) => ({ ...prev, commentsFile: file }));
+                }}
+              />
+              </div>
+            </div>
+            
+            {/* DESIGNER */}
+            <select
+              name="designer"
+              value={data.designer}
+              onChange={handleChange}
+              className={baseInput}
+            >
+              <option>APPROVED</option>
+              <option>CONDITIONALLY APPROVED</option>
+              <option>REJECTED</option>
+              <option>PENDING</option>
             </select>
-          </div>
-          <div>
-            <label className="text-xs text-black">Graphic</label>
-            <select name="graphic" value={data.graphic} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
-              <option value="">-</option>
-              <option value="Graphic A">Graphic A</option>
-              <option value="Graphic B">Graphic B</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-black">Technologist</label>
-            <select name="technologist" value={data.technologist} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
-              <option value="">-</option>
-              <option value="Tech A">Tech A</option>
-              <option value="Tech B">Tech B</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <button type="submit" className="bg-cyan-400 text-black font-bold py-2 px-6 rounded hover:bg-cyan-300 transition-colors">
-          SAVE
-        </button>
-      </div>
-    </form>
+            {/* GRAPHIC */}
+            <select
+              name="graphic"
+              value={data.graphic}
+              onChange={handleChange}
+              className={baseInput}
+            >
+              <option value="">Graphic</option>
+              <option>Graphic A</option>
+              <option>Graphic B</option>
+            </select>
+
+            {/* TECHNOLOGIST */}
+            <select
+              name="technologist"
+              value={data.technologist}
+              onChange={handleChange}
+              className={baseInput}
+            >
+              <option value="">Technologist</option>
+              <option>Tech A</option>
+              <option>Tech B</option>
+            </select>
+
+            {/* DELETE BUTTON */}
+            <button
+              type="button"
+              onClick={() =>
+                setData((prev) => ({
+                  ...prev,
+                  sample: "",
+                  submission: "",
+                  sentDate: "",
+                  commentsDate: "",
+                  commentsFile: null,
+                  designer: "REJECTED",
+                  graphic: "",
+                  technologist: "",
+                  commentsRemarks: "",
+                }))
+              }
+              className={outlineBtn}
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* REMARKS BELOW */}
+          <textarea
+            name="commentsRemarks"
+            value={data.commentsRemarks}
+            onChange={handleChange}
+            placeholder="Remarks"
+            className={baseTextarea}
+          />
+        </section>
+
+        {/* ───── ACTIONS ───── */}
+        <div className="flex justify-end gap-4">
+          <button type="button" className={outlineBtn}>Cancel</button>
+          <button type="submit" className={primaryBtn}>Save</button>
+        </div>
+      </form>
+    </main>
   );
-};
-
-export default ModelDocumentationForm;
+}
