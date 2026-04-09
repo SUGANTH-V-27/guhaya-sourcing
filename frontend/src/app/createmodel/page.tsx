@@ -2,8 +2,10 @@
 
 import { useState, useRef } from "react";
 import { Plus, Trash2, Upload, ChevronDown } from "lucide-react";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function GuhayaUI() {
+  const user = useAuthStore((state) => state.user);
   const [sizes, setSizes] = useState(5);
 
   const [rows, setRows] = useState<any[]>([createRow(5)]);
@@ -89,7 +91,7 @@ export default function GuhayaUI() {
         <h1 className="text-white text-lg font-semibold">Guhaya Sourcing</h1>
 
         <div className="flex items-center gap-3 text-white text-sm">
-          merch1@mrsgarments.com
+          {user?.email || "merch1@mrsgarments.com"}
           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
             <span className="text-[#00BFA5] text-xs font-bold">M</span>
           </div>

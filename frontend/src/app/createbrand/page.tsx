@@ -2,8 +2,11 @@
 
 import { JSX, useState, useRef } from "react";
 import { Plus, Minus, Upload } from "lucide-react";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function Page(): JSX.Element {
+  const user = useAuthStore((state) => state.user);
+
   return (
     <main className="h-screen bg-black flex flex-col overflow-hidden">
       <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
@@ -12,7 +15,7 @@ export default function Page(): JSX.Element {
         </h1>
 
         <div className="flex items-center gap-3 text-white text-sm">
-          merch1@mrsgarments.com
+          {user?.email || "merch1@mrsgarments.com"}
           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
             <span className="text-[#00BFA5] text-xs font-bold">M</span>
           </div>

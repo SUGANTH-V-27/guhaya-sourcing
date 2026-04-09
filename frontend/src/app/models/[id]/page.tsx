@@ -17,6 +17,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+import { useAuthStore } from "../../../../store/authStore";
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type IconName =
@@ -203,6 +205,7 @@ export default function ModelFolderPage({
 }) {
   const { id } = React.use(params);
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
 
   function openCategory(categoryId: string) {
     // Only wire routes that exist right now
@@ -228,7 +231,7 @@ export default function ModelFolderPage({
       <header className="flex items-center justify-between px-8 py-4 bg-teal-500 text-white shadow-md">
         <h1 className="text-2xl font-bold tracking-wide">Guhaya Sourcing</h1>
         <div className="flex items-center gap-2 text-sm opacity-90">
-          <span>merch1@mrsgarments.com</span>
+          <span>{user?.email || "merch1@mrsgarments.com"}</span>
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
             <User size={16} />
           </div>
