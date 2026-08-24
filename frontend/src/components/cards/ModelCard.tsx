@@ -1,73 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { AlertTriangle, FileText } from "lucide-react";
 import type { Model } from "../../../types/model";
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 22 },
-  show: { opacity: 1, y: 0 },
-};
 
 interface ModelCardProps {
   model: Model;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
-export function ModelCard({ model }: ModelCardProps) {
-  const statusColor = model.status === "Shipped" ? "text-emerald-300" : "text-amber-300";
-  const badgeColor = model.status === "Shipped" ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300";
-  const delayed = model.status === "Pending" && model.daysToHandover > 10;
+export function ModelCard({
+  model,
+  selectable = false,
+  selected = false,
+  onSelect,
+}: ModelCardProps) {
+  const [hovered, setHovered] = useState(false);
+  const isActive = selectable ? selected : hovered;
+
+  const className = [
+    "group block overflow-hidden rounded-xl border bg-[#0d1414]",
+    "transition-all duration-200 shadow-md flex flex-col justify-between w-full",
+    isActive
+      ? "border-teal-400 shadow-teal-950/30 -translate-y-0.5"
+      : "border-gray-800/90 hover:border-gray-700",
+    selectable ? "cursor-pointer text-left" : "",
+  ].join(" ");
+
+  const content = (
+    <>
+      {/* Card Header: Compact Model Code & Factory */}
+      <div className="py-2 px-3 text-center border-b border-gray-800/80 bg-[#0d1414]">
+        <h3 className="text-xs font-bold text-white font-mono tracking-tight">
+          {model.code}
+        </h3>
+        <div className="flex items-center justify-center gap-1 text-[9px] text-gray-400 uppercase font-semibold mt-0.5 tracking-wider">
+          <FileText size={10} className="text-gray-500" />
+          <span>{model.factory || "NANDHI FABRICS"}</span>
+        </div>
+      </div>
+
+      {/* Card Image Area: Compact square aspect ratio filling width & height */}
+      <div className="relative w-full aspect-square bg-black overflow-hidden">
+        <img
+          src={model.image}
+          alt={model.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      </div>
+
+      {/* Card Footer: Compact Status Bar / Overdue warning */}
+      <div className="py-1.5 px-3 border-t border-gray-800/80 bg-[#0d1414] flex items-center justify-between text-[11px]">
+        <div className="flex items-center gap-1.5 font-bold text-red-500 text-[10px]">
+          <AlertTriangle size={11} className="shrink-0" />
+          <span>{model.daysToHandover || 3} Days overdue</span>
+        </div>
+      </div>
+    </>
+  );
+
+  if (selectable) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={className}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
-    <Link href={`/models/${model.id}`} className="block">
-      <motion.article
-        variants={cardVariants}
-        whileHover={{ y: -6, scale: 1.01 }}
-        transition={{ type: "spring", stiffness: 220, damping: 20 }}
-        className="group overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950/95 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.8)]"
-      >
-        <div className="relative overflow-hidden">
-          <img src={model.image} alt={model.name} className="h-52 w-full object-cover" />
-          <span
-            className={`absolute right-4 top-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeColor}`}
-          >
-            {model.status}
-          </span>
-        </div>
-
-        <div className="space-y-4 p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Model ID</p>
-              <h3 className="mt-2 text-xl font-semibold text-white">{model.code}</h3>
-              <p className="mt-1 text-sm text-slate-400">{model.name}</p>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 px-4 py-2 text-sm text-slate-300">
-              {model.category}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 text-sm text-slate-400">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Handover</p>
-              <p className="mt-1 text-base font-medium text-white">{model.daysToHandover} days</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${model.status === "Shipped" ? "bg-emerald-400" : "bg-amber-400"}`}
-              />
-              <p className={`${statusColor} text-sm font-medium`}>{model.status}</p>
-            </div>
-          </div>
-
-          {delayed ? (
-            <div className="flex items-center gap-2 rounded-3xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-              <span>⚠️</span>
-              <span>Delayed handover expected</span>
-            </div>
-          ) : null}
-        </div>
-      </motion.article>
+    <Link
+      href={`/models/${model.id}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={className}
+    >
+      {content}
     </Link>
   );
 }

@@ -1,33 +1,21 @@
 /* GLOBAL */
 body {
-  background: #0f1115;
+  background: #000000;
   color: white;
   font-family: Arial, sans-serif;
 }
 
 /* MAIN */
-.po-container {
-  padding: 24px;
-  max-width: 1200px;
-  margin: auto;
-}
-
-/* HEADER */
-.po-header {
-  background: #00d1b2;
-  color: black;
-  padding: 14px 20px;
-  border-radius: 10px;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 20px;
+.po-content {
+  width: 100%;
 }
 
 /* SECTIONS */
 .section {
-  background: #1a1d22;
+  background: #111827;
+  border: 1px solid #374151;
   padding: 20px;
-  border-radius: 14px;
+  border-radius: 12px;
   margin-bottom: 20px;
 }
 
@@ -41,8 +29,8 @@ h2 {
 
 /* INPUTS */
 input, select {
-  background: #0f1115;
-  border: 1px solid #00d1b2;
+  background: #000000;
+  border: 1px solid #14b8a6;
   color: white;
   padding: 8px 10px;
   border-radius: 6px;
@@ -56,7 +44,7 @@ input::placeholder {
 
 /* BUTTONS */
 .btn {
-  background: #00d1b2;
+  background: #00BFA5;
   color: black;
   border: none;
   padding: 6px 14px;
@@ -68,11 +56,20 @@ input::placeholder {
 
 .delete-btn {
   background: transparent;
-  border: 1px solid #00d1b2;
-  color: #00d1b2;
-  padding: 6px;
+  border: 1px solid #14b8a6;
+  color: #14b8a6;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
 }
 
 /* MODEL LAYOUT */

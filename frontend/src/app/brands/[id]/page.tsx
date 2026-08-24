@@ -1,107 +1,273 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { ChevronRight } from "lucide-react";
 import { ModelCard } from "@/components/cards/ModelCard";
-import { brands, models } from "@/lib/mock-data";
+import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
+import type { Model, ModelStatus } from "../../../../types/model";
 
-const gridVariants = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.1,
-    },
-  },
-};
+const inputClass =
+  "w-full rounded-lg border border-gray-700 bg-black py-2 px-3 text-sm text-white placeholder-gray-500 outline-none focus:border-teal-400/60";
 
 export default function BrandModelsPage() {
   const params = useParams();
-  const brandId = params?.id ?? "";
+  const brandId = (params?.id as string) || "";
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
+  const [modelList, setModelList] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    code: "",
+    name: "",
+    category: "",
+    status: "Pending" as ModelStatus,
+    daysToHandover: 0,
+  });
 
-  const brand = brands.find((item) => item.id === brandId);
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        setLoading(true);
+        const [brandData, modelsData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          ModelsApi.getByBrand(brandId),
+        ]);
+        setBrand(brandData);
+        setModelList(modelsData as Model[]);
+      } catch (err) {
+        console.error("Failed to load models:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [brandId]);
+
   const brandModels = useMemo(
     () =>
-      models
-        .filter((model) => model.brandId === brandId)
+      modelList
         .filter((model) =>
           [model.code, model.name, model.category]
             .join(" ")
             .toLowerCase()
             .includes(query.toLowerCase().trim()),
         ),
-    [brandId, query],
+    [modelList, query],
   );
 
+  const selectedModel = modelList.find((model) => model.id === selectedModelId) ?? null;
+
+  useEffect(() => {
+    if (selectedModel) {
+      setDraft({
+        code: selectedModel.code,
+        name: selectedModel.name,
+        category: selectedModel.category || "",
+        status: selectedModel.status,
+        daysToHandover: selectedModel.daysToHandover || 0,
+      });
+    }
+  }, [selectedModel]);
+
+  function toggleEditMode() {
+    setEditMode((prev) => {
+      const next = !prev;
+      if (!next) setSelectedModelId(null);
+      return next;
+    });
+  }
+
+  async function saveModel() {
+    if (!selectedModelId) return;
+    const updates = {
+      code: draft.code.trim(),
+      name: draft.name.trim(),
+      category: draft.category.trim(),
+      status: draft.status,
+      daysToHandover: Number(draft.daysToHandover) || 0,
+    };
+    await ModelsApi.update(selectedModelId, updates);
+    setModelList((prev) =>
+      prev.map((model) =>
+        model.id === selectedModelId
+          ? {
+              ...model,
+              ...updates,
+            }
+          : model,
+      ),
+    );
+    setEditMode(false);
+    setSelectedModelId(null);
+  }
+
+  async function deleteModel() {
+    if (!selectedModelId) return;
+    if (!window.confirm("Delete this model?")) return;
+    await ModelsApi.delete(selectedModelId);
+    setModelList((prev) => prev.filter((model) => model.id !== selectedModelId));
+    setSelectedModelId(null);
+    setEditMode(false);
+  }
+
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 sm:px-10">
-      <section className="mx-auto max-w-7xl space-y-8">
-        <div className="rounded-[32px] border border-slate-800 bg-slate-950/95 p-8 shadow-[0_32px_80px_-36px_rgba(15,23,42,0.9)]">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-3">
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">
-                Model listing
-              </p>
-              <h1 className="text-display">{brand?.name ?? "Brand"} models</h1>
-              <p className="max-w-2xl text-base text-slate-400">
-                Browse the current model shipment pipeline, update status, and review delivery timing.
-              </p>
-            </div>
-            <Link
-              href={`/createmodel?brandId=${brandId}`}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
-            >
-              Create model
-            </Link>
-          </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-            <div className="rounded-3xl bg-slate-900/80 p-6">
-              <p className="text-sm text-slate-500">Brand</p>
-              <p className="mt-3 text-2xl font-semibold text-white">{brand?.name ?? "Unknown brand"}</p>
-              <p className="mt-2 text-sm text-slate-400">{brand?.description ?? "Review model progress and handover status for the selected brand."}</p>
-            </div>
-            <div className="rounded-3xl bg-slate-900/80 p-6">
-              <p className="text-sm text-slate-500">Matching models</p>
-              <p className="mt-3 text-4xl font-semibold text-white">{brandModels.length}</p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr]">
-            <div className="relative">
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search models"
-                className="field-input pr-12 text-white"
-              />
-              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
-            </div>
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
-              <p className="text-sm text-slate-500">Filter state</p>
-              <p className="mt-3 text-xl font-semibold text-white">{query ? "Filtered" : "All models"}</p>
-            </div>
-          </div>
+    <SourcingShell
+      breadcrumb={
+        <>
+          <Link href="/dashboard" className="transition-colors hover:text-teal-400">
+            Dashboard
+          </Link>
+          <ChevronRight size={14} />
+          <Link href="/brands" className="transition-colors hover:text-teal-400">
+            Brands
+          </Link>
+          <ChevronRight size={14} />
+          <span className="font-medium text-gray-200">{brand?.name ?? brandId.toUpperCase()}</span>
+        </>
+      }
+    >
+      {/* Top action controls & Search */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Link href={`/createmodel?brandId=${brandId}`} className="btn">
+            Create model
+          </Link>
+          <button
+            type="button"
+            onClick={toggleEditMode}
+            className={editMode ? "btn-outline-active" : "btn-outline"}
+          >
+            Edit model
+          </button>
         </div>
 
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={gridVariants}
-          className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
-        >
-          {brandModels.length > 0 ? (
-            brandModels.map((model) => <ModelCard key={model.id} model={model} />)
-          ) : (
-            <div className="col-span-full rounded-[28px] border border-slate-800 bg-slate-950/95 p-10 text-center text-slate-400">
-              No models match your search criteria.
+        <div className="relative w-full sm:max-w-md">
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-500">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M21 21L16.65 16.65"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search models"
+            className="w-full rounded-xl border border-gray-700 bg-gray-900 py-3 pl-12 pr-4 text-white placeholder-gray-500 outline-none focus:border-teal-400/60"
+          />
+        </div>
+      </div>
+
+      {editMode ? (
+        <p className="mb-4 text-sm text-gray-400">Select a model to rename or delete it.</p>
+      ) : null}
+
+      {editMode && selectedModel ? (
+        <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-5">
+          <h3 className="mb-4 text-lg font-semibold text-white">Edit model</h3>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Model ID</label>
+              <input
+                value={draft.code}
+                onChange={(e) => setDraft((prev) => ({ ...prev, code: e.target.value }))}
+                className={inputClass}
+              />
             </div>
-          )}
-        </motion.div>
-      </section>
-    </main>
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Model name</label>
+              <input
+                value={draft.name}
+                onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Category</label>
+              <input
+                value={draft.category}
+                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Status</label>
+              <select
+                value={draft.status}
+                onChange={(e) => setDraft((prev) => ({ ...prev, status: e.target.value as ModelStatus }))}
+                className={inputClass}
+              >
+                <option value="Pending">Pending</option>
+                <option value="Shipped">Shipped</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Days to handover</label>
+              <input
+                type="number"
+                min={0}
+                value={draft.daysToHandover}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, daysToHandover: Number(e.target.value) }))
+                }
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={saveModel} className="btn px-5 py-2 font-semibold">
+              Save changes
+            </button>
+            <button type="button" onClick={deleteModel} className="delete-btn" title="Delete model">
+              🗑
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedModelId(null)}
+              className="btn-outline px-4 py-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-3">
+        {brandModels.length > 0 ? (
+          brandModels.map((model) => (
+            <ModelCard
+              key={model.id}
+              model={model}
+              selectable={editMode}
+              selected={selectedModelId === model.id}
+              onSelect={() => setSelectedModelId(model.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full rounded-xl border border-gray-700 bg-gray-900 py-12 text-center text-gray-400">
+            No models match your search.
+          </div>
+        )}
+      </div>
+    </SourcingShell>
   );
 }

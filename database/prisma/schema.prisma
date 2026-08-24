@@ -1,0 +1,707 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. CORE & AUTH
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String?  @unique
+  email     String   @unique
+  fullName  String?
+  role      String   @default("Merchandiser")
+  phone     String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Factory {
+  id                   String                  @id @default(uuid())
+  name                 String
+  code                 String?                 @unique
+  location             String?
+  address              String?
+  contactPerson        String?
+  contactEmail         String?
+  contactPhone         String?
+  complianceGrade      String                  @default("B")
+  totalCapacityMonthly Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  models               Model[]
+  purchaseOrders       PurchaseOrder[]
+  bookingTrackers      BookingTracker[]
+  ledgerTransactions   FactoryLedgerTransaction[]
+
+  @@map("factories")
+}
+
+model Brand {
+  id               String            @id
+  name             String
+  code             String?
+  country          String            @default("United Kingdom")
+  primaryContact   String?
+  email            String?
+  phone            String?
+  description      String?
+  logoUrl          String?
+  totalModels      Int               @default(0)
+  activeOrders     Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  models           Model[]
+  purchaseOrders   PurchaseOrder[]
+  brandSummaries   BrandSummary[]
+  testingStandards TestingStandard[]
+  bookingTrackers  BookingTracker[]
+  courierShipments CourierShipment[]
+  caprIssues       CaprIssue[]
+
+  @@map("brands")
+}
+
+// 2. MODELS & PRODUCTION
+model Model {
+  id             String         @id
+  brandId        String
+  factoryId      String?
+  factoryName    String         @default("NANDHI FABRICS")
+  code           String
+  name           String
+  category       String?
+  imageUrl       String?
+  status         String         @default("Pending")
+  daysToHandover Int            @default(0)
+  buyer          String?
+  department     String?
+  subclass       String?
+  season         String?
+  targetFob      Decimal        @default(0.00) @db.Decimal(12, 2)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  brand          Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  factory        Factory?       @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+  purchaseOrders PurchaseOrder[]
+  tnaPlans       TnaPlan[]
+  trimmingBoms   TrimmingBom[]
+  qcInspections  QcInspection[]
+  caprIssues     CaprIssue[]
+  costingSheets  CostingSheet[]
+
+  @@map("models")
+}
+
+model PurchaseOrder {
+  id                  String   @id @default(uuid())
+  poNumber            String   @unique
+  modelId             String?
+  brandId             String
+  factoryId           String?
+  buyer               String?
+  department          String?
+  season              String?
+  currency            String   @default("USD")
+  totalQty            Int      @default(0)
+  totalAmount         Decimal  @default(0.00) @db.Decimal(14, 2)
+  orderDate           DateTime?
+  deliveryDate        DateTime?
+  shipmentMode        String   @default("Sea")
+  status              String   @default("Draft")
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  brand               Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  factory             Factory? @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+  items               PoItem[]
+
+  @@map("purchase_orders")
+}
+
+model PoItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  colorway        String
+  itemCode        String?
+  xsQty           Int           @default(0)
+  sQty            Int           @default(0)
+  mQty            Int           @default(0)
+  lQty            Int           @default(0)
+  xlQty           Int           @default(0)
+  xxlQty          Int           @default(0)
+  totalQty        Int           @default(0)
+  unitPrice       Decimal       @default(0.00) @db.Decimal(10, 2)
+  totalPrice      Decimal       @default(0.00) @db.Decimal(12, 2)
+  createdAt       DateTime      @default(now())
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("po_items")
+}
+
+model TnaPlan {
+  id              String         @id @default(uuid())
+  modelId         String
+  poNumber        String?
+  orderQty        Int            @default(0)
+  exFactoryDate   DateTime?
+  totalStages     Int            @default(0)
+  completedStages Int            @default(0)
+  status          String         @default("On Track")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  model           Model          @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  milestones      TnaMilestone[]
+
+  @@map("tna_plans")
+}
+
+model TnaMilestone {
+  id                String    @id @default(uuid())
+  tnaPlanId         String
+  stageName         String
+  category          String?
+  plannedStart      DateTime?
+  plannedEnd        DateTime?
+  actualStart       DateTime?
+  actualEnd         DateTime?
+  status            String    @default("Pending")
+  responsiblePerson String?
+  remarks           String?
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  tnaPlan           TnaPlan   @relation(fields: [tnaPlanId], references: [id], onDelete: Cascade)
+
+  @@map("tna_milestones")
+}
+
+model TrimmingBom {
+  id                String   @id @default(uuid())
+  modelId           String
+  itemType          String
+  supplierName      String?
+  specification     String?
+  color             String?
+  sizeDimension     String?
+  consumptionPerPc  Decimal  @default(0.0000) @db.Decimal(10, 4)
+  unit              String   @default("PCS")
+  unitCost          Decimal  @default(0.0000) @db.Decimal(10, 4)
+  currency          String   @default("USD")
+  requiredQty       Decimal  @default(0.00) @db.Decimal(12, 2)
+  approvalStatus    String   @default("Pending")
+  proofImageUrl     String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  model             Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@map("trimming_boms")
+}
+
+model QcInspection {
+  id              String   @id @default(uuid())
+  modelId         String
+  inspectionType  String
+  factoryName     String?
+  inspectorName   String?
+  inspectionDate  DateTime
+  totalOrderQty   Int      @default(0)
+  sampleSize      Int      @default(0)
+  aqlLevel        String   @default("AQL 2.5")
+  criticalDefects Int      @default(0)
+  majorDefects    Int      @default(0)
+  minorDefects    Int      @default(0)
+  result          String   @default("Pending")
+  remarks         String?
+  reportPdfUrl    String?
+  photos          Json?    @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  model           Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@map("qc_inspections")
+}
+
+// 3. BRAND SUB-MODULES
+model BrandSummary {
+  id                 String   @id @default(uuid())
+  brandId            String
+  summaryMonth       String?
+  totalOrders        Int      @default(0)
+  totalPieces        Int      @default(0)
+  fobValue           Decimal  @default(0.00) @db.Decimal(14, 2)
+  onTimeDeliveryRate Decimal  @default(100.00) @db.Decimal(5, 2)
+  qualityPassRate    Decimal  @default(100.00) @db.Decimal(5, 2)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  brand              Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("brand_summaries")
+}
+
+model TestingStandard {
+  id                  String   @id @default(uuid())
+  brandId             String
+  testCategory        String
+  parameterName       String
+  testMethod          String?
+  requirementStandard String
+  tolerance           String?
+  isMandatory         Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  brand               Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("testing_standards")
+}
+
+model BookingTracker {
+  id              String   @id @default(uuid())
+  brandId         String
+  factoryId       String?
+  monthPeriod     String
+  department      String?
+  projectedPieces Int      @default(0)
+  confirmedPieces Int      @default(0)
+  shippedPieces   Int      @default(0)
+  status          String   @default("Open")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  brand           Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  factory         Factory? @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+
+  @@map("booking_trackers")
+}
+
+model FactoryCapacity {
+  id                 String   @id @default(uuid())
+  brandId            String?
+  factoryName        String
+  totalLines         Int      @default(0)
+  totalMachines      Int      @default(0)
+  monthlyCapacityPcs Int      @default(0)
+  allocatedPcs       Int      @default(0)
+  utilizationPct     Decimal  @default(0.00) @db.Decimal(5, 2)
+  monthPeriod        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("factory_capacities")
+}
+
+model CourierShipment {
+  id             String    @id @default(uuid())
+  brandId        String
+  awbNumber      String
+  courierPartner String    @default("DHL")
+  shipmentType   String    @default("Sample")
+  sender         String?
+  recipient      String?
+  dispatchDate   DateTime?
+  deliveryDate   DateTime?
+  status         String    @default("In Transit")
+  trackingUrl    String?
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  brand          Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("courier_shipments")
+}
+
+model CaprIssue {
+  id                 String    @id @default(uuid())
+  brandId            String
+  modelId            String?
+  factoryName        String?
+  issueTitle         String
+  issueDescription   String?
+  severity           String    @default("Major")
+  rootCause          String?
+  preventiveAction   String?
+  assignedTo         String?
+  targetClosureDate  DateTime?
+  closureDate        DateTime?
+  status             String    @default("Open")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  brand              Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  model              Model?    @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  @@map("capr_issues")
+}
+
+// 4. AUDIT & COMPLIANCE
+model SocialComplianceAudit {
+  id                    String                    @id @default(uuid())
+  factoryName           String
+  brand                 String                    @default("SOXO")
+  address               String?
+  auditDate             DateTime
+  contactPerson         String?
+  contactEmail          String?
+  auditorName           String?
+  overallScore          Decimal                   @default(0.00) @db.Decimal(5, 2)
+  grade                 String                    @default("A")
+  colorRating           String                    @default("Green")
+  criticalCompliantCount Int                      @default(17)
+  criticalTotalCount    Int                       @default(17)
+  totalPointsPossible   Int                       @default(0)
+  totalPointsAchieved   Int                       @default(0)
+  auditorRemarks        String?
+  goodPractices         String?
+  criticalIssues        String?
+  status                String                    @default("Completed")
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  sections              SocialComplianceSection[]
+  findings              SirFinding[]
+
+  @@map("social_compliance_audits")
+}
+
+model SocialComplianceSection {
+  id                 String                @id @default(uuid())
+  auditId            String
+  sectionNo          Int
+  sectionName        String
+  scorePossible      Int                   @default(0)
+  scoreAchieved      Int                   @default(0)
+  greenCount         Int                   @default(0)
+  lightGreenCount    Int                   @default(0)
+  orangeCount        Int                   @default(0)
+  redCount           Int                   @default(0)
+  blackCount         Int                   @default(0)
+  notApplicableCount Int                   @default(0)
+  checklistData      Json?                 @default("[]")
+  createdAt          DateTime              @default(now())
+  audit              SocialComplianceAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@map("social_compliance_sections")
+}
+
+model SirFinding {
+  id                  String                @id @default(uuid())
+  auditId             String
+  category            String
+  clause              String?
+  description         String
+  severity            String                @default("Minor")
+  factoryCapa         String?
+  remediationDeadline DateTime?
+  status              String                @default("Open")
+  createdAt           DateTime              @default(now())
+  audit               SocialComplianceAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@map("sir_findings")
+}
+
+model TechnicalAudit {
+  id              String   @id @default(uuid())
+  factoryName     String
+  brand           String   @default("SOXO")
+  auditDate       DateTime
+  auditorName     String?
+  contactPerson   String?
+  contactEmail    String?
+  factoryAddress  String?
+  scorePercentage Decimal  @default(0.00) @db.Decimal(5, 2)
+  availableItems  Int      @default(0)
+  missingItems    Int      @default(0)
+  totalItems      Int      @default(64)
+  rating          String   @default("Acceptable")
+  conclusion      String?
+  sectionsData    Json?    @default("[]")
+  proofFileUrl    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("technical_audits")
+}
+
+model Certification {
+  id                String   @id @default(uuid())
+  factoryName       String
+  certificationType String
+  certificateNumber String
+  issuingBody       String?
+  issueDate         DateTime
+  expiryDate        DateTime
+  scope             String?
+  notes             String?
+  pdfUrl            String?
+  status            String   @default("Valid")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("certifications")
+}
+
+// 5. COSTING MODULE
+model CostingSheet {
+  id                       String   @id @default(uuid())
+  modelId                  String?
+  styleCode                String
+  styleName                String
+  brand                    String
+  season                   String?
+  currency                 String   @default("USD")
+  orderQuantity            Int      @default(0)
+  fabricCost               Decimal  @default(0.0000) @db.Decimal(12, 4)
+  trimsCost                Decimal  @default(0.0000) @db.Decimal(12, 4)
+  cmCost                   Decimal  @default(0.0000) @db.Decimal(12, 4)
+  printEmbroideryCost      Decimal  @default(0.0000) @db.Decimal(12, 4)
+  washFinishCost           Decimal  @default(0.0000) @db.Decimal(12, 4)
+  packagingCost            Decimal  @default(0.0000) @db.Decimal(12, 4)
+  commercialTransportCost  Decimal  @default(0.0000) @db.Decimal(12, 4)
+  subtotalCost             Decimal  @default(0.0000) @db.Decimal(12, 4)
+  marginPercentage         Decimal  @default(15.00) @db.Decimal(6, 2)
+  marginAmount             Decimal  @default(0.0000) @db.Decimal(12, 4)
+  totalFobPrice            Decimal  @default(0.0000) @db.Decimal(12, 4)
+  targetFobPrice           Decimal  @default(0.0000) @db.Decimal(12, 4)
+  variance                 Decimal  @default(0.0000) @db.Decimal(12, 4)
+  status                   String   @default("Draft")
+  breakdownJson            Json?    @default("{}")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  model                    Model?   @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  @@map("costing_sheets")
+}
+
+// 6. FINANCE & ACCOUNTING
+model CompanySetting {
+  id            String   @id @default(uuid())
+  companyName   String   @default("GUHAYA SOURCING PRIVATE LIMITED")
+  gstin         String   @default("33AABCG1234F1Z5")
+  pan           String   @default("AABCG1234F")
+  address       String   @default("12/4 Sourcing Plaza, Textile Hub, Tirupur - 641602, Tamil Nadu, India")
+  email         String   @default("finance@guhayasourcing.com")
+  phone         String   @default("+91 421 2233445")
+  bankName      String   @default("HDFC Bank Ltd")
+  accountNumber String   @default("50200012345678")
+  ifscCode      String   @default("HDFC0001234")
+  branch        String   @default("Tirupur Main Branch")
+  invoicePrefix String   @default("GS/2026/")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  invoiceType   String        @default("Tax Invoice")
+  partyType     String        @default("Buyer")
+  partyName     String
+  partyGstin    String?
+  partyAddress  String?
+  partyEmail    String?
+  invoiceDate   DateTime
+  dueDate       DateTime?
+  currency      String        @default("INR")
+  subtotal      Decimal       @default(0.00) @db.Decimal(14, 2)
+  cgstRate      Decimal       @default(9.00) @db.Decimal(5, 2)
+  cgstAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
+  sgstRate      Decimal       @default(9.00) @db.Decimal(5, 2)
+  sgstAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
+  igstRate      Decimal       @default(0.00) @db.Decimal(5, 2)
+  igstAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
+  grandTotal    Decimal       @default(0.00) @db.Decimal(14, 2)
+  paidAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
+  balanceAmount Decimal       @default(0.00) @db.Decimal(14, 2)
+  paymentStatus String        @default("Unpaid")
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  itemDescription String
+  hsnCode         String?
+  quantity        Decimal  @default(1.00) @db.Decimal(12, 2)
+  unit            String   @default("PCS")
+  rate            Decimal  @default(0.00) @db.Decimal(12, 2)
+  amount          Decimal  @default(0.00) @db.Decimal(14, 2)
+  createdAt       DateTime @default(now())
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model FactoryLedgerTransaction {
+  id              String   @id @default(uuid())
+  factoryId       String?
+  factoryName     String
+  transactionDate DateTime
+  referenceNo     String?
+  description     String
+  debitAmount     Decimal  @default(0.00) @db.Decimal(14, 2)
+  creditAmount    Decimal  @default(0.00) @db.Decimal(14, 2)
+  runningBalance  Decimal  @default(0.00) @db.Decimal(14, 2)
+  paymentMode     String   @default("Bank Transfer")
+  notes           String?
+  createdAt       DateTime @default(now())
+  factory         Factory? @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+
+  @@map("factory_ledger_transactions")
+}
+
+model MonthlyLedger {
+  id            String   @id @default(uuid())
+  monthKey      String   @unique
+  totalIncome   Decimal  @default(0.00) @db.Decimal(14, 2)
+  totalExpenses Decimal  @default(0.00) @db.Decimal(14, 2)
+  netSavings    Decimal  @default(0.00) @db.Decimal(14, 2)
+  status        String   @default("Active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("monthly_ledgers")
+}
+
+model IncomeEntry {
+  id          String   @id @default(uuid())
+  monthKey    String
+  sourceName  String
+  category    String   @default("Commission")
+  amount      Decimal  @default(0.00) @db.Decimal(14, 2)
+  entryDate   DateTime
+  referenceNo String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+
+  @@map("income_entries")
+}
+
+model ExpenseEntry {
+  id          String   @id @default(uuid())
+  monthKey    String
+  expenseName String
+  category    String   @default("Office")
+  amount      Decimal  @default(0.00) @db.Decimal(14, 2)
+  entryDate   DateTime
+  paidTo      String?
+  receiptUrl  String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+
+  @@map("expense_entries")
+}
+
+model CommissionRecord {
+  id                String    @id @default(uuid())
+  buyerBrand        String
+  factoryName       String
+  orderNumber       String
+  orderValue        Decimal   @default(0.00) @db.Decimal(14, 2)
+  commissionRatePct Decimal   @default(5.00) @db.Decimal(5, 2)
+  commissionAmount  Decimal   @default(0.00) @db.Decimal(14, 2)
+  invoiceDate       DateTime?
+  paymentStatus     String    @default("Pending")
+  receivedDate      DateTime?
+  remarks           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("commission_records")
+}
+
+model StaffMember {
+  id            String             @id @default(uuid())
+  staffCode     String?            @unique
+  fullName      String
+  designation   String
+  department    String             @default("Merchandising")
+  dateOfJoining DateTime?
+  phone         String?
+  email         String?
+  baseSalary    Decimal            @default(0.00) @db.Decimal(12, 2)
+  hra           Decimal            @default(0.00) @db.Decimal(12, 2)
+  allowances    Decimal            @default(0.00) @db.Decimal(12, 2)
+  bankAccount   String?
+  panNumber     String?
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  attendances   AttendanceRecord[]
+  salarySlips   SalarySlip[]
+  advances      AdvancePayment[]
+
+  @@map("staff_members")
+}
+
+model AttendanceRecord {
+  id             String      @id @default(uuid())
+  staffId        String
+  attendanceDate DateTime
+  status         String      @default("Present")
+  inTime         DateTime?
+  outTime        DateTime?
+  overtimeHours  Decimal     @default(0.00) @db.Decimal(4, 2)
+  notes          String?
+  createdAt      DateTime    @default(now())
+  staff          StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, attendanceDate])
+  @@map("attendance_records")
+}
+
+model SalarySlip {
+  id              String      @id @default(uuid())
+  staffId         String
+  salaryMonth     String
+  workingDays     Int         @default(26)
+  presentDays     Decimal     @default(26.0) @db.Decimal(4, 1)
+  basicPay        Decimal     @default(0.00) @db.Decimal(12, 2)
+  hra             Decimal     @default(0.00) @db.Decimal(12, 2)
+  allowances      Decimal     @default(0.00) @db.Decimal(12, 2)
+  overtimePay     Decimal     @default(0.00) @db.Decimal(12, 2)
+  grossSalary     Decimal     @default(0.00) @db.Decimal(12, 2)
+  pfDeduction     Decimal     @default(0.00) @db.Decimal(12, 2)
+  esiDeduction    Decimal     @default(0.00) @db.Decimal(12, 2)
+  tdsDeduction    Decimal     @default(0.00) @db.Decimal(12, 2)
+  advanceRecovery Decimal     @default(0.00) @db.Decimal(12, 2)
+  totalDeductions Decimal     @default(0.00) @db.Decimal(12, 2)
+  netSalary       Decimal     @default(0.00) @db.Decimal(12, 2)
+  paymentStatus   String      @default("Pending")
+  paymentDate     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  staff           StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, salaryMonth])
+  @@map("salary_slips")
+}
+
+model AdvancePayment {
+  id               String      @id @default(uuid())
+  staffId          String
+  advanceDate      DateTime
+  amount           Decimal     @default(0.00) @db.Decimal(12, 2)
+  repaymentMonths  Int         @default(1)
+  monthlyDeduction Decimal     @default(0.00) @db.Decimal(12, 2)
+  repaidAmount     Decimal     @default(0.00) @db.Decimal(12, 2)
+  balanceAmount    Decimal     @default(0.00) @db.Decimal(12, 2)
+  status           String      @default("Active")
+  reason           String?
+  createdAt        DateTime    @default(now())
+  staff            StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("advance_payments")
+}

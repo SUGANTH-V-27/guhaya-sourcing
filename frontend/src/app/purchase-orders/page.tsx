@@ -1,5 +1,7 @@
-import PurchaseOrderPage from "@/purchase-orders/PurchaseOrderPage";
+"use client";
 
-export default function Page() {
-  return <PurchaseOrderPage />;
+import ModelPurchaseOrderPage from "@/app/models/[id]/purchase-order/page";
+
+export default function PurchaseOrderPage() {
+  return <ModelPurchaseOrderPage params={Promise.resolve({ id: "5906482949644" })} />;
 }

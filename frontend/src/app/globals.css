@@ -103,6 +103,77 @@ body {
     font-size: 1rem;
     line-height: 2.75rem;
   }
+
+  /* Shared with purchase orders — add / delete row actions */
+  .btn {
+    background: #00bfa5;
+    color: black;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    box-sizing: border-box;
+    text-decoration: none;
+  }
+
+  .delete-btn {
+    background: transparent;
+    border: 1px solid #14b8a6;
+    color: #14b8a6;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    padding: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid #14b8a6;
+    color: #14b8a6;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    box-sizing: border-box;
+  }
+
+  .btn-outline-active {
+    background: #14b8a6;
+    color: black;
+    border: 1px solid #14b8a6;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    box-sizing: border-box;
+  }
 }
 
 /* Keep field look when browser autofill / password manager applies styles (Chrome, Edge, Safari) */

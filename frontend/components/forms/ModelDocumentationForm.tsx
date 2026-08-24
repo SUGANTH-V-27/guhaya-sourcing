@@ -2,6 +2,10 @@
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 
+const inputClass =
+  'w-full rounded-lg border border-gray-700 bg-black py-2 px-3 text-sm text-white placeholder-gray-500 outline-none focus:border-teal-400/60';
+const sectionClass = 'rounded-xl border border-gray-700 bg-gray-900 p-4';
+
 type TechPackEntry = {
   techPackName: string;
   receivedDate: string;
@@ -38,11 +42,8 @@ type AddFileButtonProps = {
 
 const AddFileButton = ({ inputId, onChange }: AddFileButtonProps) => (
   <>
-    <label
-      htmlFor={inputId}
-      className="cursor-pointer inline-flex items-center gap-1 rounded-lg border-2 border-cyan-400 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-cyan-300 transition-colors"
-    >
-      ADD 📤
+    <label htmlFor={inputId} className="btn cursor-pointer">
+      + ADD
     </label>
     <input id={inputId} type="file" onChange={onChange} className="hidden" />
   </>
@@ -58,16 +59,16 @@ type FileOpsProps = {
 
 const FileOps = ({ file, onDownload, onEdit, onDelete }: FileOpsProps) => (
   <div className="flex items-center gap-2 flex-wrap">
-    <span className="text-xs text-gray-500">Attached:</span>
+    <span className="text-xs text-gray-400">Attached:</span>
     {file ? (
       <>
-        <span className="text-xs text-gray-700 truncate max-w-[120px]">{file.name}</span>
+        <span className="max-w-[120px] truncate text-xs text-gray-300">{file.name}</span>
         <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-        <button type="button" onClick={onDownload} title="Download" className="group relative text-cyan-500 hover:text-cyan-700 text-base">
+        <button type="button" onClick={onDownload} title="Download" className="group relative text-base text-teal-400 hover:text-teal-300">
           📥
           <span className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] rounded px-1 py-0.5 whitespace-nowrap z-10">Download</span>
         </button>
-        <button type="button" onClick={onEdit} title="Edit" className="group relative text-cyan-500 hover:text-cyan-700 text-base">
+        <button type="button" onClick={onEdit} title="Edit" className="group relative text-base text-teal-400 hover:text-teal-300">
           ✏️
           <span className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] rounded px-1 py-0.5 whitespace-nowrap z-10">Edit</span>
         </button>
@@ -162,15 +163,15 @@ const ModelDocumentationForm = () => {
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6 p-6 bg-white rounded-xl shadow-lg border">
+    <form onSubmit={onSubmit} className="space-y-6">
 
       {/* ── MODEL DOCUMENTATION ── */}
-      <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3 border rounded-lg p-4">
-          <h2 className="text-2xl font-bold mb-4">MODEL DOCUMENTATION</h2>
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div className={`lg:col-span-3 ${sectionClass}`}>
+          <h2 className="mb-4 text-2xl font-bold text-white">MODEL DOCUMENTATION</h2>
 
           {/* Header row */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 mb-1 text-xs font-semibold text-gray-500 px-1">
+          <div className="mb-1 grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 px-1 text-xs font-semibold text-gray-400">
             <span>Tech Pack Name</span>
             <span>Received Date</span>
             <span>Remarks</span>
@@ -183,7 +184,7 @@ const ModelDocumentationForm = () => {
             {data.techPacks.map((tp, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 items-start"
+                className="grid grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 items-center"
               >
                 {/* Tech Pack Name */}
                 <input
@@ -191,7 +192,7 @@ const ModelDocumentationForm = () => {
                   value={tp.techPackName}
                   onChange={handleTechPackText(idx)}
                   placeholder="Tech pack name"
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
+                  className={inputClass}
                 />
 
                 {/* Received Date */}
@@ -200,7 +201,7 @@ const ModelDocumentationForm = () => {
                   name="receivedDate"
                   value={tp.receivedDate}
                   onChange={handleTechPackText(idx)}
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
+                  className={inputClass}
                 />
 
                 {/* Remarks */}
@@ -209,7 +210,7 @@ const ModelDocumentationForm = () => {
                   value={tp.remarks}
                   onChange={handleTechPackText(idx)}
                   placeholder="Remarks"
-                  className="w-full border-2 border-cyan-400 rounded-lg py-2 px-3 text-sm"
+                  className={inputClass}
                 />
 
                 {/* Attached file */}
@@ -244,9 +245,9 @@ const ModelDocumentationForm = () => {
                   type="button"
                   onClick={() => removeTechPackRow(idx)}
                   title="Remove row"
-                  className="cursor-pointer inline-flex items-center gap-1 rounded-lg border-2 border-cyan-400 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-cyan-300 transition-colors"
+                  className="delete-btn"
                 >
-                  DELETE 🗑️
+                  🗑
                 </button>
               </div>
             ))}
@@ -257,49 +258,59 @@ const ModelDocumentationForm = () => {
             <button
               type="button"
               onClick={addTechPackRow}
-              className="bg-cyan-400 text-black font-semibold px-4 py-2 rounded-md hover:bg-cyan-300 transition-colors text-sm"
+              className="btn mb-3"
             >
-              ADD TECH PACK
+              + ADD TECH PACK
             </button>
           </div>
         </div>
 
-        {/* Model card */}
-        <aside className="border rounded-lg p-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-bold">{data.modelId}</h3>
-            <p className="text-sm text-black">25 Days to handover!</p>
+        {/* Model preview card */}
+        <aside className={`${sectionClass} flex h-full flex-col items-center justify-between`}>
+          <p className="w-full border-b border-gray-700 pb-3 text-center text-2xl font-bold tracking-widest text-white">
+            {data.modelId}
+          </p>
+          <div className="my-4 flex flex-1 items-center justify-center">
+            <div className="flex items-end gap-3 opacity-30">
+              <div className="h-40 w-14 rounded-b-sm rounded-t-full bg-amber-800" />
+              <div
+                className="h-40 w-14 rounded-b-sm rounded-t-full"
+                style={{
+                  background:
+                    'repeating-linear-gradient(45deg, #bbb 0px, #bbb 4px, #ddd 4px, #ddd 10px)',
+                }}
+              />
+            </div>
           </div>
-          <img
-            src="https://via.placeholder.com/180x220"
-            alt="Model"
-            className="mt-4 w-full object-cover rounded"
-          />
+          <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200">
+            <span>⚠️</span>
+            25 Days to handover!
+          </div>
         </aside>
       </section>
 
       {/* ── MODEL COMMENTS ── */}
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="text-2xl font-bold mb-4">MODEL COMMENTS</h2>
+      <section className={`${sectionClass} space-y-3`}>
+        <h2 className="mb-4 text-2xl font-bold text-white">MODEL COMMENTS</h2>
 
         <div>
-          <label className="text-xs text-black">Sample</label>
-          <input name="sample" value={data.sample} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
+          <label className="text-xs text-gray-400">Sample</label>
+          <input name="sample" value={data.sample} onChange={handleChange} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-black">Submission</label>
-          <input name="submission" value={data.submission} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
+          <label className="text-xs text-gray-400">Submission</label>
+          <input name="submission" value={data.submission} onChange={handleChange} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-black">Sent Date</label>
-          <input type="date" name="sentDate" value={data.sentDate} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
+          <label className="text-xs text-gray-400">Sent Date</label>
+          <input type="date" name="sentDate" value={data.sentDate} onChange={handleChange} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-black">Comments Date</label>
-          <input type="date" name="commentsDate" value={data.commentsDate} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg px-3 py-2" />
+          <label className="text-xs text-gray-400">Comments Date</label>
+          <input type="date" name="commentsDate" value={data.commentsDate} onChange={handleChange} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-black block mb-1">Comments File</label>
+          <label className="mb-1 block text-xs text-gray-400">Comments File</label>
           <div className="flex items-center gap-2 flex-wrap">
             <AddFileButton inputId="comments-file-main" onChange={handleCommentsFile} />
             {data.commentsFile && (
@@ -314,14 +325,14 @@ const ModelDocumentationForm = () => {
         </div>
 
         <div>
-          <label className="text-xs text-black block">Remarks</label>
-          <textarea name="commentsRemarks" value={data.commentsRemarks} onChange={handleChange} rows={3} className="w-full border-2 border-cyan-400 rounded-lg p-3" />
+          <label className="block text-xs text-gray-400">Remarks</label>
+          <textarea name="commentsRemarks" value={data.commentsRemarks} onChange={handleChange} rows={3} className={inputClass} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
-            <label className="text-xs text-black">Designer</label>
-            <select name="designer" value={data.designer} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
+            <label className="text-xs text-gray-400">Designer</label>
+            <select name="designer" value={data.designer} onChange={handleChange} className={inputClass}>
               <option value="">-</option>
               <option value="APPROVED">APPROVED</option>
               <option value="CONDITIONAL APPROVED">CONDITIONAL APPROVED</option>
@@ -330,16 +341,16 @@ const ModelDocumentationForm = () => {
             </select>
           </div>
           <div>
-            <label className="text-xs text-black">Graphic</label>
-            <select name="graphic" value={data.graphic} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
+            <label className="text-xs text-gray-400">Graphic</label>
+            <select name="graphic" value={data.graphic} onChange={handleChange} className={inputClass}>
               <option value="">-</option>
               <option value="Graphic A">Graphic A</option>
               <option value="Graphic B">Graphic B</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-black">Technologist</label>
-            <select name="technologist" value={data.technologist} onChange={handleChange} className="w-full border-2 border-cyan-400 rounded-lg p-2">
+            <label className="text-xs text-gray-400">Technologist</label>
+            <select name="technologist" value={data.technologist} onChange={handleChange} className={inputClass}>
               <option value="">-</option>
               <option value="Tech A">Tech A</option>
               <option value="Tech B">Tech B</option>
@@ -349,7 +360,7 @@ const ModelDocumentationForm = () => {
       </section>
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <button type="submit" className="bg-cyan-400 text-black font-bold py-2 px-6 rounded hover:bg-cyan-300 transition-colors">
+        <button type="submit" className="btn px-6 py-2 font-bold">
           SAVE
         </button>
       </div>

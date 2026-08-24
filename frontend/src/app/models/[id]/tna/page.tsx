@@ -1,0 +1,356 @@
+"use client";
+
+import Link from "next/link";
+import React, { useState } from "react";
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronRight,
+  GripVertical,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { SourcingShell } from "@/components/layout/SourcingShell";
+
+interface TNARow {
+  id: string;
+  activity: string;
+  plannedDate: string;
+  actualDate: string;
+  remarks: string;
+}
+
+const DEFAULT_TNA_ACTIVITIES: TNARow[] = [
+  {
+    id: "tna-1",
+    activity: "Order Confirmation & Tech Pack Release",
+    plannedDate: "2026-08-01",
+    actualDate: "2026-08-02",
+    remarks: "Confirmed PO with buyer tech pack v2",
+  },
+  {
+    id: "tna-2",
+    activity: "Fabric Booking & Yarn In-house",
+    plannedDate: "2026-08-05",
+    actualDate: "2026-08-04",
+    remarks: "Yarn received at Prime Tex dyeing mill",
+  },
+  {
+    id: "tna-3",
+    activity: "Lab Dip & Shade Swatch Approval",
+    plannedDate: "2026-08-10",
+    actualDate: "2026-08-10",
+    remarks: "Option B approved by buyer colorist",
+  },
+  {
+    id: "tna-4",
+    activity: "Fit Sample / Gold Seal Approval",
+    plannedDate: "2026-08-15",
+    actualDate: "2026-08-17",
+    remarks: "Hood depth adjusted and approved",
+  },
+  {
+    id: "tna-5",
+    activity: "Bulk Trims & Accessories In-house",
+    plannedDate: "2026-08-18",
+    actualDate: "",
+    remarks: "Labels in-house; drawcords in transit",
+  },
+  {
+    id: "tna-6",
+    activity: "Pre-Production Meeting (PPM)",
+    plannedDate: "2026-08-20",
+    actualDate: "2026-08-20",
+    remarks: "Critical points documented with factory QA",
+  },
+  {
+    id: "tna-7",
+    activity: "Bulk Fabric In-house & 4-Point Audit",
+    plannedDate: "2026-08-22",
+    actualDate: "",
+    remarks: "4,200 kg fleece expected from finishing unit",
+  },
+  {
+    id: "tna-8",
+    activity: "Bulk Cutting Start",
+    plannedDate: "2026-08-25",
+    actualDate: "",
+    remarks: "CAD markers ready, 87.4% efficiency",
+  },
+  {
+    id: "tna-9",
+    activity: "Sewing Line Production Start",
+    plannedDate: "2026-08-28",
+    actualDate: "",
+    remarks: "Line #4 allocated, target 1,200 pcs/day",
+  },
+  {
+    id: "tna-10",
+    activity: "Inline & Midline QC Audits",
+    plannedDate: "2026-09-05",
+    actualDate: "",
+    remarks: "AQL 2.5 Major / 4.0 Minor tolerance",
+  },
+  {
+    id: "tna-11",
+    activity: "Finishing, Ironing & Packaging",
+    plannedDate: "2026-09-18",
+    actualDate: "",
+    remarks: "Polybag with barcode & carton packing",
+  },
+  {
+    id: "tna-12",
+    activity: "Final Random Inspection (AQL)",
+    plannedDate: "2026-09-24",
+    actualDate: "",
+    remarks: "Final pre-shipment sign-off",
+  },
+  {
+    id: "tna-13",
+    activity: "Ex-Factory Dispatch",
+    plannedDate: "2026-09-30",
+    actualDate: "",
+    remarks: "Container handover to forwarder",
+  },
+];
+
+export default function ModelTNAPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: modelId } = React.use(params);
+  const [rows, setRows] = useState<TNARow[]>(DEFAULT_TNA_ACTIVITIES);
+  const [isSavedAlert, setIsSavedAlert] = useState(false);
+
+  function calculateStatus(planned: string, actual: string) {
+    if (!planned || !actual) return null;
+    const pDate = new Date(planned);
+    const aDate = new Date(actual);
+    if (isNaN(pDate.getTime()) || isNaN(aDate.getTime())) return null;
+
+    const diffTime = aDate.getTime() - pDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      return { status: "delayed", text: `${diffDays}d Late`, days: diffDays };
+    } else if (diffDays < 0) {
+      return { status: "early", text: `${Math.abs(diffDays)}d Early`, days: Math.abs(diffDays) };
+    } else {
+      return { status: "on_time", text: "On Time", days: 0 };
+    }
+  }
+
+  function handleAddRow() {
+    const newRow: TNARow = {
+      id: `tna-${Date.now()}`,
+      activity: "",
+      plannedDate: "",
+      actualDate: "",
+      remarks: "",
+    };
+    setRows([...rows, newRow]);
+  }
+
+  function handleDeleteRow(id: string) {
+    if (rows.length <= 1) return;
+    setRows(rows.filter((r) => r.id !== id));
+  }
+
+  function handleUpdate(id: string, field: keyof TNARow, value: string) {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+    );
+  }
+
+  function handleSave() {
+    setIsSavedAlert(true);
+    setTimeout(() => setIsSavedAlert(false), 3000);
+  }
+
+  return (
+    <SourcingShell>
+      <div className="space-y-6 text-gray-200 pb-16">
+
+        {/* Page Title & Save Button Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight font-serif">
+              PRODUCTION PLANNING / TNA (TIME &amp; ACTION)
+            </h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Model: <span className="font-mono text-white font-semibold">{modelId || "5906482949644"}</span>
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            className="flex items-center gap-2 rounded-lg bg-[#00BFA5] px-5 py-2 text-xs font-bold text-black hover:bg-[#0cae9d] transition shadow-lg self-start sm:self-auto"
+          >
+            <Save size={15} /> Save
+          </button>
+        </div>
+
+        {/* Alert Notification on Save */}
+        {isSavedAlert && (
+          <div className="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-3 text-xs font-semibold text-teal-300 flex items-center justify-between">
+            <span>✓ Production Planning / TNA timeline saved successfully!</span>
+            <button onClick={() => setIsSavedAlert(false)} className="text-teal-400 hover:text-white">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Card Container with Teal Header Banner */}
+        <div className="rounded-2xl border border-gray-800 bg-[#0d1414] overflow-hidden shadow-2xl">
+          {/* Teal Header Banner */}
+          <div className="bg-[#00BFA5] px-5 py-3 text-black">
+            <h2 className="text-xs font-extrabold uppercase tracking-wider">
+              PRODUCTION PLANNING / TNA (TIME &amp; ACTION)
+            </h2>
+          </div>
+
+          {/* Table Container */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-gray-300">
+              <thead className="border-b border-gray-800 bg-black/80 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                <tr>
+                  <th className="py-3 px-2 w-8 text-center"></th>
+                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-4 min-w-[280px]">ITEM / ACTIVITY</th>
+                  <th className="py-3 px-4 min-w-[150px]">PLAN DATE</th>
+                  <th className="py-3 px-4 min-w-[150px]">ACTUAL DATE</th>
+                  <th className="py-3 px-4 min-w-[120px] text-center">EARLY / DELAY</th>
+                  <th className="py-3 px-4 min-w-[200px]">REMARKS</th>
+                  <th className="py-3 px-3 w-10 text-center"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/60">
+                {rows.map((row, idx) => {
+                  const statusInfo = calculateStatus(row.plannedDate, row.actualDate);
+                  return (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-gray-800/20 transition group"
+                    >
+                      {/* Drag Handle */}
+                      <td className="py-2.5 px-2 text-center text-gray-600 group-hover:text-gray-400 cursor-grab">
+                        <GripVertical size={14} className="mx-auto" />
+                      </td>
+
+                      {/* Row Index */}
+                      <td className="py-2.5 px-3 text-center font-mono text-xs font-semibold text-gray-400">
+                        {idx + 1}
+                      </td>
+
+                      {/* Activity Name Input */}
+                      <td className="py-2.5 px-4">
+                        <input
+                          type="text"
+                          value={row.activity}
+                          placeholder="Activity name"
+                          onChange={(e) => handleUpdate(row.id, "activity", e.target.value)}
+                          className="w-full rounded border border-transparent bg-transparent px-2 py-1 text-xs text-white placeholder-gray-600 outline-none hover:border-gray-800 focus:border-teal-400 focus:bg-black"
+                        />
+                      </td>
+
+                      {/* Plan Date Picker */}
+                      <td className="py-2.5 px-4">
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={row.plannedDate}
+                            onChange={(e) => handleUpdate(row.id, "plannedDate", e.target.value)}
+                            className="w-full rounded border border-gray-800/80 bg-black/60 px-2.5 py-1 font-mono text-xs text-white outline-none focus:border-teal-400"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Actual Date Picker */}
+                      <td className="py-2.5 px-4">
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={row.actualDate}
+                            onChange={(e) => handleUpdate(row.id, "actualDate", e.target.value)}
+                            className="w-full rounded border border-gray-800/80 bg-black/60 px-2.5 py-1 font-mono text-xs text-teal-300 outline-none focus:border-teal-400"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Early / Delay Status Badge */}
+                      <td className="py-2.5 px-4 text-center">
+                        {statusInfo ? (
+                          <span
+                            className={`inline-block rounded px-2.5 py-0.5 text-[11px] font-bold ${
+                              statusInfo.status === "delayed"
+                                ? "bg-red-500/20 text-red-300 border border-red-500/30"
+                                : statusInfo.status === "early"
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                : "bg-teal-500/20 text-teal-300 border border-teal-500/30"
+                            }`}
+                          >
+                            {statusInfo.text}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600 text-xs font-mono">—</span>
+                        )}
+                      </td>
+
+                      {/* Remarks Input */}
+                      <td className="py-2.5 px-4">
+                        <input
+                          type="text"
+                          value={row.remarks}
+                          placeholder="Remarks"
+                          onChange={(e) => handleUpdate(row.id, "remarks", e.target.value)}
+                          className="w-full rounded border border-transparent bg-transparent px-2 py-1 text-xs text-gray-300 placeholder-gray-600 outline-none hover:border-gray-800 focus:border-teal-400 focus:bg-black"
+                        />
+                      </td>
+
+                      {/* Delete Action */}
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(row.id)}
+                          className="text-gray-600 hover:text-red-400 transition"
+                          title="Delete Row"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Add Row Button */}
+          <div className="p-4 border-t border-gray-800/80 bg-black/40">
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-900/90 px-4 py-2 text-xs font-bold text-gray-200 hover:border-teal-400 hover:text-white transition"
+            >
+              <Plus size={14} className="text-teal-400" /> Add Row
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Save TNA Button */}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="flex items-center gap-2 rounded-lg bg-[#00BFA5] px-6 py-2.5 text-xs font-bold text-black hover:bg-[#0cae9d] transition shadow-xl"
+          >
+            <Save size={15} /> Save TNA
+          </button>
+        </div>
+      </div>
+    </SourcingShell>
+  );
+}

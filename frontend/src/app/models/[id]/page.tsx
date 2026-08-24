@@ -4,197 +4,45 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import {
-  ShoppingCart,
-  FileText,
-  Paintbrush,
-  Scissors,
-  Tag,
-  ClipboardCheck,
-  BarChart2,
-  ClipboardList,
   AlertTriangle,
-  User,
+  ArrowLeft,
+  BarChart2,
+  Box,
+  CalendarClock,
+  CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  Download,
+  FileCheck,
+  FileText,
+  Folder,
+  Layers,
+  Palette,
+  Ruler,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
+import { SourcingShell } from "@/components/layout/SourcingShell";
+import { brands, models } from "@/lib/mock-data";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-type IconName =
-  | "ShoppingCart"
-  | "FileText"
-  | "Paintbrush"
-  | "Scissors"
-  | "Tag"
-  | "ClipboardCheck"
-  | "BarChart2"
-  | "ClipboardList";
-
-interface FolderCategory {
-  id: string;
-  label: string;
-  iconName: IconName;
+interface CategoryItem {
+  key: string;
+  title: string;
+  icon: React.ElementType;
+  route?: string;
+  isModal?: boolean;
+  subtitle?: string;
   fileCount: number;
 }
 
-interface ModelData {
-  code: string;
-  daysToHandover: number;
-  imageUrl?: string;
+interface UploadedFile {
+  id: string;
+  fileName: string;
+  fileSize: string;
+  uploadDate: string;
 }
-
-// ── Icon renderer (avoids storing JSX in data) ───────────────────────────────
-
-function CategoryIcon({ name }: { name: IconName }) {
-  const props = { size: 36, strokeWidth: 1.4 };
-  switch (name) {
-    case "ShoppingCart":   return <ShoppingCart {...props} />;
-    case "FileText":       return <FileText {...props} />;
-    case "Paintbrush":     return <Paintbrush {...props} />;
-    case "Scissors":       return <Scissors {...props} />;
-    case "Tag":            return <Tag {...props} />;
-    case "ClipboardCheck": return <ClipboardCheck {...props} />;
-    case "BarChart2":      return <BarChart2 {...props} />;
-    case "ClipboardList":  return <ClipboardList {...props} />;
-  }
-}
-
-// ── Mock data (replace with real API call) ───────────────────────────────────
-
-const CATEGORIES: FolderCategory[] = [
-  { id: "purchase-orders",      label: "Purchase Orders",          iconName: "ShoppingCart",   fileCount: 1 },
-  { id: "model-documentations", label: "Model Documentations",     iconName: "FileText",       fileCount: 3 },
-  { id: "artwork",              label: "Artwork",                  iconName: "Paintbrush",     fileCount: 1 },
-  { id: "pattern",              label: "Pattern",                  iconName: "Scissors",       fileCount: 4 },
-  { id: "trimming-files",       label: "Trimming Files & Layouts", iconName: "Tag",            fileCount: 8 },
-  { id: "sample-evaluation",    label: "Sample Evaluation",        iconName: "ClipboardCheck", fileCount: 4 },
-  { id: "daily-production",     label: "Daily Production Report",  iconName: "BarChart2",      fileCount: 4 },
-  { id: "quality-check",        label: "Quality Check Reports",    iconName: "ClipboardList",  fileCount: 4 },
-];
-
-const MODEL: ModelData = {
-  code: "006GS",
-  daysToHandover: 25,
-};
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function CategoryCard({
-  category,
-  onOpen,
-}: {
-  category: FolderCategory;
-  onOpen: (categoryId: string) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <button
-      onClick={() => onOpen(category.id)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={[
-        "group relative flex flex-col justify-between",
-        "bg-gray-900 border rounded-xl p-5 text-left",
-        "transition-all duration-200 cursor-pointer w-full",
-        hovered
-          ? "border-teal-400 shadow-md -translate-y-0.5"
-          : "border-gray-700 shadow-sm",
-      ].join(" ")}
-      style={{ minHeight: "160px" }}
-    >
-      {/* Icon */}
-      <div
-        className={[
-          "flex items-center justify-center w-16 h-16 rounded-full border-2 mb-3",
-          "transition-colors duration-200",
-          hovered
-            ? "border-teal-500 text-teal-600 bg-teal-50"
-            : "border-teal-400 text-teal-500",
-        ].join(" ")}
-      >
-        <CategoryIcon name={category.iconName} />
-      </div>
-
-      {/* Label */}
-      <p className="font-bold text-whitetext-sm leading-tight uppercase tracking-wide flex-1">
-        {category.label}
-      </p>
-
-      {/* Divider + file count */}
-      <div className="border-t border-gray-700 mt-3 pt-3">
-        <span className="text-xs text-gray-300">
-          No. Of Files:{" "}
-          <span className="font-semibold text-gray-400">
-            {String(category.fileCount).padStart(2, "0")}
-          </span>
-        </span>
-      </div>
-
-      {/* Hover arrow */}
-      <ChevronRight
-        size={14}
-        className={[
-          "absolute top-4 right-4 text-teal-400 transition-opacity duration-200",
-          hovered ? "opacity-100" : "opacity-0",
-        ].join(" ")}
-      />
-    </button>
-  );
-}
-
-function ModelPreviewCard({ model }: { model: ModelData }) {
-  const urgent = model.daysToHandover <= 30;
-
-  return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-sm flex flex-col items-center justify-between p-6 h-full">
-      {/* Model code */}
-      <p className="text-2xl font-bold text-white tracking-widest w-full text-center border-b border-gray-100 pb-3">
-        {model.code}
-      </p>
-
-      {/* Garment illustration */}
-      <div className="flex-1 flex items-center justify-center w-full my-4">
-        {model.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={model.imageUrl}
-            alt={`Model ${model.code}`}
-            className="max-h-48 object-contain"
-          />
-        ) : (
-          <div className="flex gap-3 items-end opacity-30">
-            <div className="w-14 h-40 bg-amber-800 rounded-t-full rounded-b-sm" />
-            <div
-              className="w-14 h-40 rounded-t-full rounded-b-sm"
-              style={{
-                background:
-                  "repeating-linear-gradient(45deg, #bbb 0px, #bbb 4px, #ddd 4px, #ddd 10px)",
-              }}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Days to handover badge */}
-      <div
-        className={[
-          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold",
-          urgent
-            ? "bg-amber-50 text-amber-600 border border-amber-200"
-            : "bg-teal-50 text-teal-600 border border-teal-200",
-        ].join(" ")}
-      >
-        <AlertTriangle
-          size={15}
-          className={urgent ? "text-amber-500" : "text-teal-500"}
-        />
-        {model.daysToHandover} Days to handover!
-      </div>
-    </div>
-  );
-}
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ModelFolderPage({
   params,
@@ -204,79 +52,280 @@ export default function ModelFolderPage({
   const { id } = React.use(params);
   const router = useRouter();
 
-  function openCategory(categoryId: string) {
-    // Only wire routes that exist right now
-    switch (categoryId) {
-      case "purchase-orders":
-        router.push("/purchase-orders");
-        return;
-      case "model-documentations":
-        router.push("/models/modeldoc");
-        return;
-      case "artwork":
-        router.push("/models/artwork");
-        return;
-      default:
-        return;
+  // Find model & brand
+  const model = models.find((m) => m.id === id || m.code === id) || {
+    id: id || "5906482949644",
+    code: id && id.length > 5 ? id : "5906482949644",
+    name: "Tote Bag",
+    brandId: "tera",
+    category: "Home Textiles",
+    daysToHandover: -3,
+    image: "",
+  };
+
+  const brand = brands.find((b) => b.id === model.brandId) || {
+    id: "soxo",
+    name: "SOXO",
+  };
+
+  // ── Daily Production Report Files State ────────────────────────────────────
+  const [productionFiles, setProductionFiles] = useState<UploadedFile[]>([]);
+  const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
+
+  // 9 Categories matching live site
+  const categories: CategoryItem[] = [
+    {
+      key: "purchase_orders",
+      title: "PURCHASE ORDERS",
+      icon: ClipboardCheck,
+      route: `/models/${id}/purchase-order`,
+      subtitle: "Last Saved on 22-08-2026",
+      fileCount: 1,
+    },
+    {
+      key: "tna",
+      title: "TNA (TIME & ACTION)",
+      icon: CalendarClock,
+      route: `/models/${id}/tna`,
+      fileCount: 0,
+    },
+    {
+      key: "sample_submission",
+      title: "SAMPLE SUBMISSION & APPROVAL",
+      icon: FileCheck,
+      route: `/models/${id}/documentation`,
+      fileCount: 0,
+    },
+    {
+      key: "artwork",
+      title: "ARTWORK",
+      icon: Palette,
+      route: `/models/${id}/artwork`,
+      fileCount: 0,
+    },
+    {
+      key: "measurements_pattern",
+      title: "MEASUREMENTS & PATTERN",
+      icon: Ruler,
+      route: `/models/${id}/measurements`,
+      fileCount: 0,
+    },
+    {
+      key: "trimming_files",
+      title: "TRIMMING FILES & LAYOUTS",
+      icon: Box,
+      route: `/models/${id}/trimming`,
+      fileCount: 0,
+    },
+    {
+      key: "fabric_status",
+      title: "FABRIC STATUS",
+      icon: Layers,
+      route: `/models/${id}/fabric-status`,
+      fileCount: 0,
+    },
+    {
+      key: "daily_production_report",
+      title: "DAILY PRODUCTION REPORT",
+      icon: BarChart2,
+      isModal: true,
+      fileCount: productionFiles.length,
+    },
+    {
+      key: "quality_check_reports",
+      title: "QUALITY CHECK REPORTS",
+      icon: ClipboardList,
+      route: `/models/${id}/quality-check`,
+      fileCount: 0,
+    },
+  ];
+
+  const isOverdue = model.daysToHandover <= 0;
+  const overdueDays = Math.abs(model.daysToHandover || 3);
+
+  function handleCategoryClick(cat: CategoryItem) {
+    if (cat.isModal) {
+      setIsProductionModalOpen(true);
+    } else if (cat.route) {
+      router.push(cat.route);
     }
   }
 
+  function handleProductionFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newFiles: UploadedFile[] = Array.from(files).map((f) => ({
+      id: `file-${Date.now()}-${Math.random()}`,
+      fileName: f.name,
+      fileSize: `${(f.size / 1024).toFixed(1)} KB`,
+      uploadDate: new Date().toISOString().split("T")[0],
+    }));
+    setProductionFiles([...productionFiles, ...newFiles]);
+  }
+
+  function handleDeleteProductionFile(fileId: string) {
+    setProductionFiles(productionFiles.filter((f) => f.id !== fileId));
+  }
+
   return (
-    <div className="min-h-screen bg-black font-sans">
+    <SourcingShell>
+      <div className="space-y-5 text-gray-200">
 
-      {/* Top nav bar */}
-      <header className="flex items-center justify-between px-8 py-4 bg-teal-500 text-white shadow-md">
-        <h1 className="text-2xl font-bold tracking-wide">Guhaya Sourcing</h1>
-        <div className="flex items-center gap-2 text-sm opacity-90">
-          <span>merch1@mrsgarments.com</span>
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-            <User size={16} />
+        {/* Main 3x3 Grid + Right Preview Card */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Left 3-Column Grid of 9 Categories */}
+          <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {categories.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.key}
+                  type="button"
+                  onClick={() => handleCategoryClick(cat)}
+                  className="w-full text-left bg-[#0d1414] rounded-2xl border border-teal-900/40 p-5 hover:border-teal-500/50 hover:bg-[#101b1b] hover:shadow-lg transition-all group cursor-pointer flex flex-col justify-between"
+                  style={{ minHeight: "135px" }}
+                >
+                  <div className="flex items-center gap-3.5 mb-3">
+                    <div className="w-11 h-11 rounded-full border-2 border-teal-500/40 flex items-center justify-center shrink-0 text-teal-400 group-hover:border-teal-400 group-hover:bg-teal-500/10 transition-colors">
+                      <Icon size={20} strokeWidth={1.7} />
+                    </div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider leading-snug">
+                      {cat.title}
+                    </h3>
+                  </div>
+
+                  <div className="w-full h-[1.5px] bg-teal-500/30 rounded mb-3" />
+
+                  <p className="text-xs text-gray-400 font-medium">
+                    {cat.subtitle ?? `No. Of Files: ${String(cat.fileCount).padStart(2, "0")}`}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right Model Preview Card */}
+          <div className="w-full lg:w-72 shrink-0 rounded-2xl border border-teal-900/40 bg-[#0d1414] p-5 flex flex-col items-center justify-between shadow-xl">
+            {/* Model Number / Code */}
+            <div className="w-full border-b border-teal-900/40 pb-3 text-center">
+              <h2 className="text-lg font-bold font-mono text-white tracking-widest">
+                {model.code}
+              </h2>
+            </div>
+
+            {/* Model Image Frame */}
+            <div className="my-5 w-full h-64 rounded-2xl bg-white p-3 flex items-center justify-center overflow-hidden shadow-inner">
+              {model.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={model.image}
+                  alt={model.code}
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full bg-black rounded-xl flex items-center justify-center">
+                  <span className="font-black text-xl tracking-widest bg-gradient-to-r from-teal-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">
+                    CHAOS
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Overdue / Handover Badge */}
+            <div
+              className={`w-full flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold ${
+                isOverdue
+                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-400"
+                  : "bg-teal-500/10 border border-teal-500/30 text-teal-400"
+              }`}
+            >
+              <AlertTriangle size={14} className={isOverdue ? "text-amber-400" : "text-teal-400"} />
+              <span>{isOverdue ? `${overdueDays} Days overdue!` : `${model.daysToHandover} Days to handover!`}</span>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Breadcrumb */}
-      <nav className="px-8 py-3 text-sm text-gray-500 flex items-center gap-1">
-        <span className="hover:text-teal-600 cursor-pointer transition-colors">
-          Models
-        </span>
-        <ChevronRight size={14} />
-        <span className="text-gray-200 font-medium">{id ?? MODEL.code}</span>
-      </nav>
-
-      {/* Main grid */}
-      <main className="px-8 pb-12">
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(3, 1fr) 280px",
-          }}
-        >
-          {/* 8 category cards */}
-          {CATEGORIES.map((cat) => (
-            <CategoryCard key={cat.id} category={cat} onOpen={openCategory} />
-          ))}
-
-          {/* Model preview — spans all rows on column 4 */}
+        {/* ── Modal: Daily Production Report ─────────────────────────────────── */}
+        {isProductionModalOpen && (
           <div
-            style={{
-              gridColumn: 4,
-              gridRow: "1 / 4",
-            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+            onClick={() => setIsProductionModalOpen(false)}
           >
-            <ModelPreviewCard model={MODEL} />
-          </div>
-        </div>
+            <div
+              className="w-full max-w-md rounded-2xl border border-gray-800 bg-[#0d1414] shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4 bg-gray-900/50">
+                <h2 className="text-base font-bold text-white">Daily Production Report</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsProductionModalOpen(false)}
+                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-        <div className="mt-6 flex justify-end">
-          <Link
-            href={`/createmodel?id=${id ?? MODEL.code}`}
-            className="inline-flex items-center justify-center rounded-md bg-[#00BFA5] px-5 py-2 text-sm font-semibold text-black hover:bg-[#0cae9d]"
-          >
-            Create model
-          </Link>
-        </div>
-      </main>
-    </div>
+              {/* Modal Body */}
+              <div className="p-6 space-y-5">
+                {productionFiles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-6 space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-black/60 border border-gray-800 flex items-center justify-center text-gray-400 shadow-inner">
+                      <Folder size={26} className="text-teal-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">No files yet</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Upload files for daily production report
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto">
+                    {productionFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-800 bg-black/40 p-3 text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileText size={16} className="text-teal-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate max-w-[200px]">{file.fileName}</p>
+                            <p className="text-[10px] text-gray-500">{file.fileSize} • {file.uploadDate}</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProductionFile(file.id)}
+                          className="p-1 text-gray-500 hover:text-red-400 transition"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <div>
+                  <label className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-full bg-[#00BFA5] px-6 py-3 text-xs font-bold text-black hover:bg-[#0cae9d] transition shadow-xl">
+                    <Upload size={15} /> Upload Files
+                    <input
+                      type="file"
+                      multiple
+                      accept=".xlsx,.xls,.csv,.pdf,.docx,.doc,.png,.jpg"
+                      className="hidden"
+                      onChange={handleProductionFileUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </SourcingShell>
   );
 }

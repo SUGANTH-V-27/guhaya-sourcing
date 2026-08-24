@@ -2,36 +2,22 @@
 
 import { JSX, useState, useRef } from "react";
 import { Plus, Minus, Upload } from "lucide-react";
+import { SourcingShell } from "@/components/layout/SourcingShell";
 
 export default function Page(): JSX.Element {
   return (
-    <main className="h-screen bg-black flex flex-col overflow-hidden">
-      <div className="bg-[#00BFA5] px-8 py-3 flex justify-between items-center shrink-0">
-        <h1 className="text-white text-lg font-semibold">
-          Guhaya Sourcing
-        </h1>
+    <SourcingShell fullHeight>
+      <CombinedSection />
 
-        <div className="flex items-center gap-3 text-white text-sm">
-          merch1@mrsgarments.com
-          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
-            <span className="text-[#00BFA5] text-xs font-bold">M</span>
-          </div>
-        </div>
+      <div className="flex justify-end gap-3 pt-6">
+        <button className="rounded-md border border-gray-600 px-6 py-2 text-sm text-gray-300">
+          EDIT
+        </button>
+        <button className="rounded-md bg-[#00BFA5] px-6 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#0cae9d]">
+          SAVE BRAND
+        </button>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-8">
-        <CombinedSection />
-
-        <div className="flex justify-end gap-3 pt-6">
-          <button className="border border-gray-600 text-gray-300 rounded-md px-6 py-2 text-sm">
-            EDIT
-          </button>
-          <button className="bg-[#00BFA5] text-black rounded-md px-6 py-2 text-sm font-semibold">
-            SAVE BRAND
-          </button>
-        </div>
-      </div>
-    </main>
+    </SourcingShell>
   );
 }
 
@@ -55,6 +41,9 @@ type FactoryRow = {
   code: string;
   name: string;
   address: string;
+  gstin: string;
+  state: string;
+  stateCode: string;
 };
 
 function CombinedSection(): JSX.Element {
@@ -83,7 +72,14 @@ function CombinedSection(): JSX.Element {
   ]);
 
   const [factoryRows, setFactoryRows] = useState<FactoryRow[]>([
-    { code: "F001", name: "ABC Factory", address: "Chennai" },
+    {
+      code: "F001",
+      name: "ABC Factory",
+      address: "Chennai",
+      gstin: "",
+      state: "TAMILNADU",
+      stateCode: "33",
+    },
   ]);
 
   const brandConfig: { key: keyof BrandColumns; label: string }[] = [
@@ -167,7 +163,10 @@ function CombinedSection(): JSX.Element {
 
   const addFactoryRow = () => {
     setFactoryRows((prev) => {
-      const updated = [...prev, { code: "", name: "", address: "" }];
+      const updated = [
+        ...prev,
+        { code: "", name: "", address: "", gstin: "", state: "", stateCode: "" },
+      ];
 
       setTimeout(() => {
         factoryEndRef.current?.scrollIntoView({
@@ -336,11 +335,14 @@ function CombinedSection(): JSX.Element {
           Factory Details
         </h2>
 
-        <div className="grid grid-cols-4 gap-6 mb-3">
+        <div className="grid grid-cols-7 gap-4 mb-3">
           {[
             "Factory Code",
             "Factory",
             "Factory Address",
+            "GSTIN",
+            "State",
+            "Code",
           ].map((h) => (
             <p key={h} className="text-xs text-gray-400">
               {h}
@@ -351,7 +353,7 @@ function CombinedSection(): JSX.Element {
 
         <div className="flex flex-col gap-4">
           {factoryRows.map((row, i) => (
-            <div key={i} className="grid grid-cols-4 gap-6">
+            <div key={i} className="grid grid-cols-7 gap-4">
               <input
                 value={row.code}
                 onChange={(e) =>
@@ -371,6 +373,30 @@ function CombinedSection(): JSX.Element {
                 onChange={(e) =>
                   handleFactoryChange(i, "address", e.target.value)
                 }
+                className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+              />
+              <input
+                value={row.gstin}
+                onChange={(e) =>
+                  handleFactoryChange(i, "gstin", e.target.value)
+                }
+                placeholder="GSTIN"
+                className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+              />
+              <input
+                value={row.state}
+                onChange={(e) =>
+                  handleFactoryChange(i, "state", e.target.value)
+                }
+                placeholder="State"
+                className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+              />
+              <input
+                value={row.stateCode}
+                onChange={(e) =>
+                  handleFactoryChange(i, "stateCode", e.target.value)
+                }
+                placeholder="Code"
                 className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
               />
 

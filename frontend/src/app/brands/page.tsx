@@ -1,115 +1,220 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
-import { brands } from "../../lib/mock-data";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import { BrandImageCard } from "@/components/cards/BrandImageCard";
+import { SourcingShell } from "@/components/layout/SourcingShell";
+import { BrandsApi } from "@/lib/api/brands-api";
 import type { Brand } from "../../../types/brand";
 
+const inputClass =
+  "w-full rounded-lg border border-gray-700 bg-black py-2 px-3 text-sm text-white placeholder-gray-500 outline-none focus:border-teal-400/60";
+
 export default function BrandListingPage() {
+  const [brandList, setBrandList] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [limit, setLimit] = useState(5);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ name: "", category: "", description: "" });
 
-  const filteredBrands = useMemo(
-    () =>
-      brands.filter((brand) =>
-        [brand.name, brand.category, brand.description]
-          .join(" ")
-          .toLowerCase()
-          .includes(query.toLowerCase().trim()),
+  useEffect(() => {
+    async function loadBrands() {
+      try {
+        setLoading(true);
+        const data = await BrandsApi.getAll();
+        setBrandList(data as Brand[]);
+      } catch (err) {
+        console.error("Failed to load brands:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadBrands();
+  }, []);
+
+  const filteredBrands = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return brandList;
+    return brandList.filter((brand) =>
+      [brand.name, brand.category, brand.description].join(" ").toLowerCase().includes(q),
+    );
+  }, [brandList, query]);
+
+  const selectedBrand = brandList.find((brand) => brand.id === selectedBrandId) ?? null;
+
+  useEffect(() => {
+    if (selectedBrand) {
+      setDraft({
+        name: selectedBrand.name,
+        category: selectedBrand.category || "",
+        description: selectedBrand.description || "",
+      });
+    }
+  }, [selectedBrand]);
+
+  function toggleEditMode() {
+    setEditMode((prev) => {
+      const next = !prev;
+      if (!next) setSelectedBrandId(null);
+      return next;
+    });
+  }
+
+  async function saveBrand() {
+    if (!selectedBrandId) return;
+    const updates = {
+      name: draft.name.trim(),
+      category: draft.category.trim(),
+      description: draft.description.trim(),
+    };
+    await BrandsApi.update(selectedBrandId, updates);
+    setBrandList((prev) =>
+      prev.map((brand) =>
+        brand.id === selectedBrandId
+          ? { ...brand, ...updates }
+          : brand,
       ),
-    [query],
-  );
+    );
+    setEditMode(false);
+    setSelectedBrandId(null);
+  }
 
-  const displayedBrands = filteredBrands.slice(0, limit);
+  async function deleteBrand() {
+    if (!selectedBrandId) return;
+    if (!window.confirm("Delete this brand?")) return;
+    await BrandsApi.delete(selectedBrandId);
+    setBrandList((prev) => prev.filter((brand) => brand.id !== selectedBrandId));
+    setSelectedBrandId(null);
+    setEditMode(false);
+  }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="bg-teal-500 text-white px-8 py-4 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Guhaya Sourcing</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm">merch1@mrsgarments.com</span>
-          <Link href="/login">
-            <button className="flex items-center justify-center">
-              <img src="/login_icon.png" alt="Login" className="h-6 w-6 object-contain" />
-            </button>
+    <SourcingShell
+      breadcrumb={
+        <>
+          <Link href="/dashboard" className="transition-colors hover:text-teal-400">
+            Dashboard
           </Link>
+          <ChevronRight size={14} />
+          <span className="font-medium text-gray-200">Brands</span>
+        </>
+      }
+    >
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/createbrand" className="btn">
+            Create brand
+          </Link>
+          <button
+            type="button"
+            onClick={toggleEditMode}
+            className={editMode ? "btn-outline-active" : "btn-outline"}
+          >
+            Edit brand
+          </button>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <div className="p-8">
-        {/* Controls Bar */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/createbrand"
-              className="px-6 py-2 bg-teal-500 text-white font-semibold rounded-md hover:bg-teal-600 transition-colors"
-            >
-              CREATE
-            </Link>
-            <button className="px-6 py-2 border-2 border-teal-500 text-teal-500 font-semibold rounded-md hover:bg-teal-50 transition-colors">
-              EDIT
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4 flex-1 justify-end">
-            <div className="relative w-72">
-              <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-teal-300">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search for Brands"
-                className="w-full rounded-2xl border border-teal-500 bg-gray-900 pl-12 pr-14 py-3 text-white placeholder-teal-200 outline-none focus:ring-2 focus:ring-teal-500/40 transition-colors"
+        <div className="relative w-full sm:max-w-md">
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-500">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-1 m-auto h-10 w-10 rounded-xl border border-teal-500 flex items-center justify-center hover:bg-teal-500/15 transition-colors"
-              >
-                <img src="/filter_icon.png" alt="Filter" className="h-5 w-5 object-contain" />
-              </button>
-            </div>
+              <path
+                d="M21 21L16.65 16.65"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
-        </div>
-
-        {/* Brand Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {displayedBrands.length > 0 ? (
-            displayedBrands.map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/brands/${brand.id}`}
-                className="bg-gray-800 border-2 border-gray-700 rounded-lg p-4 transition-all cursor-pointer"
-              >
-                {/* Brand Image */}
-                <div className="w-full aspect-square bg-gray-700 rounded-md mb-4 flex items-center justify-center overflow-hidden">
-                  <img
-                    src={brand.image}
-                    alt={brand.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                {/* Brand Info */}
-                <div className="text-center">
-                  <h3 className="text-lg font-bold text-white mb-2">{brand.name}</h3>
-                  <p className="text-gray-300 font-semibold text-sm mb-4">{brand.modelCount} Models</p>
-                </div>
-              </Link>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-400 text-lg">No brands found</p>
-            </div>
-          )}
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search brands"
+            className="w-full rounded-xl border border-gray-700 bg-gray-900 py-3 pl-12 pr-4 text-white placeholder-gray-500 outline-none focus:border-teal-400/60"
+          />
         </div>
       </div>
-    </main>
+
+      {editMode ? (
+        <p className="mb-4 text-sm text-gray-400">Select a brand to rename or delete it.</p>
+      ) : null}
+
+      {editMode && selectedBrand ? (
+        <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900 p-5">
+          <h3 className="mb-4 text-lg font-semibold text-white">Edit brand</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Brand name</label>
+              <input
+                value={draft.name}
+                onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-400">Category</label>
+              <input
+                value={draft.category}
+                onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs text-gray-400">Description</label>
+              <input
+                value={draft.description}
+                onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={saveBrand} className="btn px-5 py-2 font-semibold">
+              Save changes
+            </button>
+            <button type="button" onClick={deleteBrand} className="delete-btn" title="Delete brand">
+              🗑
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedBrandId(null)}
+              className="btn-outline px-4 py-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredBrands.length > 0 ? (
+          filteredBrands.map((brand) => (
+            <BrandImageCard
+              key={brand.id}
+              href={`/brands/${brand.id}`}
+              image={brand.image}
+              name={brand.name}
+              selectable={editMode}
+              selected={selectedBrandId === brand.id}
+              onSelect={() => setSelectedBrandId(brand.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full rounded-xl border border-gray-700 bg-gray-900 py-12 text-center text-gray-400">
+            No brands found
+          </div>
+        )}
+      </div>
+    </SourcingShell>
   );
 }

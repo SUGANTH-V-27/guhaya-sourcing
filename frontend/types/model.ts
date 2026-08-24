@@ -9,4 +9,5 @@ export type Model = {
   image: string;
   daysToHandover: number;
   status: ModelStatus;
+  factory?: string;
 };
