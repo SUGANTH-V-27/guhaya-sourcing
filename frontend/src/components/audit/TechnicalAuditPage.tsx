@@ -21,30 +21,7 @@ import {
   type TechnicalAudit,
 } from "@/lib/audit/technical-audit-data";
 
-const DEFAULT_AUDITS: TechnicalAudit[] = [
-  {
-    id: "ta-1",
-    factoryName: "Shri Subam Tex",
-    brand: "Sinsay",
-    auditDate: "2026-04-17",
-    auditorName: "Senior QA Auditor",
-    location: "S.F No540/2, Opp. Anbu Illam, Ring Road, Thirumurugan Poondi, Tirupur – 641 652",
-    contact: "",
-    workforce: 350,
-    capacity: 15000,
-    categories: "Knitted T-Shirts, Polos, Hoodies",
-    modules: DEFAULT_TECHNICAL_MODULES,
-    findings: [],
-    conclusion: "",
-    grade: "Good",
-    overallScorePercent: 85,
-    available: 40,
-    missing: 23,
-    total: 64,
-    createdAt: "2026-04-17",
-    updatedAt: "2026-04-17",
-  },
-];
+const DEFAULT_AUDITS: TechnicalAudit[] = [];
 
 export function TechnicalAuditPage() {
   const [audits, setAudits] = useState<TechnicalAudit[]>([]);
@@ -54,17 +31,17 @@ export function TechnicalAuditPage() {
 
   // Form
   const [formFactory, setFormFactory] = useState("");
-  const [formBrand, setFormBrand] = useState("Sinsay");
+  const [formBrand, setFormBrand] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formLocation, setFormLocation] = useState("");
-  const [formAuditor, setFormAuditor] = useState("Senior QA Auditor");
+  const [formAuditor, setFormAuditor] = useState("");
   const [formAvailable, setFormAvailable] = useState("40");
   const [formMissing, setFormMissing] = useState("0");
   const [formTotal, setFormTotal] = useState("64");
 
   useEffect(() => {
     const loaded = loadTechnicalAudits();
-    setAudits(loaded.length > 0 ? loaded : DEFAULT_AUDITS);
+    setAudits(loaded);
   }, []);
 
   function showToast(msg: string) {

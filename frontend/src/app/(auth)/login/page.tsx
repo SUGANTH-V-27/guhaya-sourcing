@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState, useEffect, useCallback } from "react";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Eye, EyeOff, Lock, Mail, Play, SkipForward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
 import { authService } from "@/../services/auth.service";
 
-const SESSION_KEY = "guhaya_intro_seen";
+const SESSION_KEY = "guhaya_intro_seen_v2";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,39 +17,43 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  /* Intro animation stages */
-  const [stage, setStage] = useState<
-    "spark" | "nib" | "leaves" | "peacock" | "emblem_done" | "wordmark" | "settle" | "docked"
-  >("spark");
-  const [isIntroActive, setIsIntroActive] = useState(true);
+  // Video intro state
+  const [isPlayingVideo, setIsPlayingVideo] = useState(true);
+  const [videoEnded, setVideoEnded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // Check reduced motion
+    // If already seen in this session or prefers reduced motion
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches || sessionStorage.getItem(SESSION_KEY)) {
-      setIsIntroActive(false);
-      setStage("docked");
+      setIsPlayingVideo(false);
+      setVideoEnded(true);
       return;
     }
 
-    // Sequence timeline
-    const t1 = setTimeout(() => setStage("nib"), 300);          // 0.30s: nib/teardrop draw
-    const t2 = setTimeout(() => setStage("leaves"), 800);       // 0.80s: leaves sweep in
-    const t3 = setTimeout(() => setStage("peacock"), 1300);     // 1.30s: peacock forms
-    const t4 = setTimeout(() => setStage("emblem_done"), 1800); // 1.80s: emblem complete
-    const t5 = setTimeout(() => setStage("wordmark"), 2300);    // 2.30s: wordmark reveals
-    const t6 = setTimeout(() => setStage("settle"), 2800);      // 2.80s: glow settles
-    const t7 = setTimeout(() => {
-      // 3.20s - 4.00s: Move directly into final login page layout
-      setIsIntroActive(false);
-      setStage("docked");
-      sessionStorage.setItem(SESSION_KEY, "1");
-    }, 3200);
+    // Auto-advance safety timer in case video fails or finishes
+    const timer = setTimeout(() => {
+      handleVideoFinished();
+    }, 4500);
 
-    return () => {
-      [t1, t2, t3, t4, t5, t6, t7].forEach(clearTimeout);
-    };
+    return () => clearTimeout(timer);
   }, []);
+
+  function handleVideoFinished() {
+    setIsPlayingVideo(false);
+    setVideoEnded(true);
+    sessionStorage.setItem(SESSION_KEY, "1");
+  }
+
+  function handleReplayVideo() {
+    sessionStorage.removeItem(SESSION_KEY);
+    setVideoEnded(false);
+    setIsPlayingVideo(true);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  }
 
   /* Auth handler */
   async function handleSubmit(e: React.FormEvent) {
@@ -76,284 +79,130 @@ export default function LoginPage() {
     }
   }
 
-  /* Clip-path reveal progression on the exact logo */
-  const getClipPath = useCallback(() => {
-    switch (stage) {
-      case "spark":
-        return "inset(12% 47% 75% 47%)";
-      case "nib":
-        return "inset(5% 35% 52% 35%)";
-      case "leaves":
-        return "inset(5% 8% 52% 8%)";
-      case "peacock":
-        return "inset(5% 5% 32% 5%)";
-      case "emblem_done":
-        return "inset(0% 2% 26% 2%)";
-      case "wordmark":
-      case "settle":
-      case "docked":
-      default:
-        return "inset(0% 0% 0% 0%)";
-    }
-  }, [stage]);
-
-  const stageIndex = [
-    "spark",
-    "nib",
-    "leaves",
-    "peacock",
-    "emblem_done",
-    "wordmark",
-    "settle",
-    "docked",
-  ].indexOf(stage);
-
   return (
     <div className="relative w-full min-h-[580px] flex flex-col items-center justify-center">
-      {/* ── Background Spark & Glow Aura during Intro ────────────────── */}
+      {/* ── Brand Video Intro Overlay ────────────────────────────────────── */}
       <AnimatePresence>
-        {isIntroActive && (
-          <>
-            {/* Spark point at center (0.00s - 0.30s) */}
-            {stage === "spark" && (
-              <motion.div
-                key="spark-point"
-                className="absolute z-30 rounded-full bg-teal-300"
-                style={{
-                  width: 8,
-                  height: 8,
-                  top: "40%",
-                  left: "50%",
-                  marginLeft: -4,
-                  marginTop: -4,
-                }}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{
-                  scale: [0, 2, 1],
-                  opacity: [0, 1, 0.8],
-                  boxShadow: [
-                    "0 0 0px rgba(0,191,165,0)",
-                    "0 0 35px rgba(0,191,165,1)",
-                    "0 0 15px rgba(0,191,165,0.6)",
-                  ],
-                }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
+        {isPlayingVideo && (
+          <motion.div
+            key="intro-video-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+          >
+            <div className="relative max-w-lg w-full px-6 flex flex-col items-center">
+              <video
+                ref={videoRef}
+                src="/intro-video.mp4"
+                autoPlay
+                muted
+                playsInline
+                onEnded={handleVideoFinished}
+                className="w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl"
               />
-            )}
 
-            {/* Subtle radial teal ambient light during reveal */}
-            <motion.div
-              key="ambient-glow"
-              className="absolute z-10 pointer-events-none rounded-full"
-              style={{
-                width: 320,
-                height: 320,
-                top: "40%",
-                left: "50%",
-                marginLeft: -160,
-                marginTop: -160,
-              }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{
-                opacity: stageIndex >= 1 && stageIndex <= 5 ? 0.18 : 0,
-                scale: stageIndex >= 4 ? 1.4 : 1,
-              }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            >
-              <div className="w-full h-full rounded-full bg-teal-400 blur-[90px]" />
-            </motion.div>
-
-            {/* Settling particles at (2.80s - 3.20s) */}
-            {stage === "settle" && (
-              <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
-                {[
-                  { x: -50, y: -30, d: 0.05 },
-                  { x: 60, y: -40, d: 0.1 },
-                  { x: -70, y: 40, d: 0.15 },
-                  { x: 80, y: 30, d: 0.2 },
-                  { x: -30, y: 70, d: 0.25 },
-                  { x: 40, y: -70, d: 0.3 },
-                ].map((p, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-1.5 h-1.5 rounded-full bg-teal-400/80"
-                    style={{ top: "40%", left: "50%" }}
-                    initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                    animate={{
-                      x: p.x,
-                      y: p.y,
-                      opacity: [1, 0.8, 0],
-                      scale: [1, 1.2, 0.2],
-                    }}
-                    transition={{ duration: 0.7, delay: p.d, ease: "easeOut" }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Skip Intro Button */}
-            <motion.button
-              key="skip-btn"
-              onClick={() => {
-                setIsIntroActive(false);
-                setStage("docked");
-                sessionStorage.setItem(SESSION_KEY, "1");
-              }}
-              className="absolute top-2 right-2 z-40 text-[11px] font-medium text-gray-500 hover:text-teal-400 transition bg-black/40 px-2.5 py-1 rounded-md border border-gray-800"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ delay: 0.8 }}
-            >
-              Skip Intro
-            </motion.button>
-          </>
+              <button
+                type="button"
+                onClick={handleVideoFinished}
+                className="mt-6 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 text-teal-300 text-xs font-semibold hover:bg-teal-500/20 hover:border-teal-400 transition"
+              >
+                <span>Skip Intro</span>
+                <SkipForward size={13} />
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Single Persistent Logo with Layout Motion Transition ──────── */}
+      {/* ── Main Login Layout ────────────────────────────────────────────── */}
       <motion.div
-        layout
-        transition={{
-          layout: { duration: 0.8, ease: [0.25, 1, 0.5, 1] },
-        }}
-        className={`relative z-20 flex flex-col items-center text-center select-none ${isIntroActive ? "my-auto py-12" : "mb-6"
-          }`}
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: videoEnded ? 0 : 0.2 }}
+        className="w-full flex flex-col items-center"
       >
-        <motion.img
-          layout="position"
-          src="/guhayalogo.png"
-          alt="Guhaya Sourcing"
-          style={{
-            clipPath: getClipPath(),
-          }}
-          className={`w-auto object-contain transition-all duration-500 ${isIntroActive
-            ? "h-[290px] sm:h-[320px] drop-shadow-[0_0_20px_rgba(0,191,165,0.4)]"
-            : "h-56 drop-shadow-none"
-            }`}
-          initial={{ opacity: 0 }}
-          animate={{
-            opacity: stageIndex >= 1 ? 1 : 0,
-          }}
-          transition={{
-            clipPath: { duration: 0.45, ease: [0.33, 1, 0.68, 1] },
-            opacity: { duration: 0.3 },
-          }}
-        />
-      </motion.div>
+        {/* Brand Logo & Replay Button */}
+        <div className="mb-6 flex flex-col items-center text-center select-none group relative">
+          <img
+            src="/guhayalogo.png"
+            alt="Guhaya Sourcing Logo"
+            className="h-44 sm:h-48 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+          />
+          <button
+            type="button"
+            onClick={handleReplayVideo}
+            title="Replay intro video"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-teal-400 transition"
+          >
+            <Play size={11} /> Replay Intro
+          </button>
+        </div>
 
-      {/* ── Login Form Card: Smoothly fades/slides up after intro ──────── */}
-      <motion.div
-        className="w-full"
-        initial={{ opacity: 0, y: 24 }}
-        animate={
-          stage === "docked"
-            ? { opacity: 1, y: 0 }
-            : { opacity: 0, y: 24, pointerEvents: "none" }
-        }
-        transition={{
-          duration: 0.6,
-          delay: 0.05,
-          ease: "easeOut",
-        }}
-      >
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
+        {/* Login Form Card */}
+        <form onSubmit={handleSubmit} className="w-full space-y-4 max-w-md">
           {error && (
-            <div
-              className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2.5 text-xs text-red-400 text-center"
-              role="alert"
-            >
+            <div className="rounded-xl border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300 animate-in fade-in">
               {error}
             </div>
           )}
 
-          {/* Email Field */}
           <div>
-            <label
-              htmlFor="login-email"
-              className="block text-xs font-medium text-gray-300 mb-1.5"
-            >
-              Email
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+              Email Address
             </label>
-            <div className="relative flex items-center rounded-xl border border-gray-800 bg-[#0d1519]/90 px-3.5 py-3 transition focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500/30">
-              <Mail size={17} className="text-gray-400 shrink-0 mr-3" />
+            <div className="relative">
               <input
-                id="login-email"
-                name="email"
                 type="email"
-                autoComplete="email"
                 required
+                placeholder="merchandiser@guhaya.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+                className="w-full rounded-xl border border-gray-800 bg-[#0d1414] px-4 py-2.5 pl-10 text-xs text-white placeholder-gray-600 focus:border-teal-400 focus:outline-none transition shadow-inner"
               />
+              <Mail size={15} className="absolute left-3.5 top-3 text-gray-500" />
             </div>
           </div>
 
-          {/* Password Field */}
           <div>
-            <label
-              htmlFor="login-password"
-              className="block text-xs font-medium text-gray-300 mb-1.5"
-            >
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">
               Password
             </label>
-            <div className="relative flex items-center rounded-xl border border-gray-800 bg-[#0d1519]/90 px-3.5 py-3 transition focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500/30">
-              <Lock size={17} className="text-gray-400 shrink-0 mr-3" />
+            <div className="relative">
               <input
-                id="login-password"
-                name="password"
                 type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
                 required
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full bg-transparent text-sm text-white placeholder-gray-500 outline-none pr-2"
+                className="w-full rounded-xl border border-gray-800 bg-[#0d1414] px-4 py-2.5 pl-10 pr-10 text-xs text-white placeholder-gray-600 focus:border-teal-400 focus:outline-none transition shadow-inner"
               />
+              <Lock size={15} className="absolute left-3.5 top-3 text-gray-500" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-gray-400 hover:text-gray-200 transition shrink-0"
-                tabIndex={-1}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3.5 top-3 text-gray-500 hover:text-white"
               >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
 
-          {/* Don't have an account link */}
-          <div className="text-right">
-            <span className="text-xs text-gray-400">
-              Don’t have an account?{" "}
-              <Link
-                href="/signup"
-                className="font-medium text-[#00BFA5] hover:underline transition"
-              >
-                Sign up
-              </Link>
-            </span>
-          </div>
-
-          {/* Sign In Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-3 rounded-xl bg-[#00BFA5] py-3 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 hover:bg-[#00ab94] active:scale-[0.99] transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full rounded-xl bg-[#00BFA5] py-2.5 text-xs font-bold text-black shadow-lg hover:bg-[#00a892] transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                <span>Signing in…</span>
-              </>
-            ) : (
-              "Sign in"
-            )}
+            {loading ? "Authenticating..." : "Sign In to Guhaya Track"}
           </button>
+
+          <div className="text-center pt-2 text-xs text-gray-400">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-teal-400 hover:underline font-medium">
+              Create one
+            </Link>
+          </div>
         </form>
       </motion.div>
     </div>

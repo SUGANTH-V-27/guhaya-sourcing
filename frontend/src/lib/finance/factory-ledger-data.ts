@@ -55,14 +55,7 @@ export function formatInrCurrency(amount: number): string {
   return amount.toLocaleString("en-IN");
 }
 
-export const DEFAULT_FACTORIES = [
-  "Apex Apparels Ltd",
-  "Fashion Matrix Private Ltd",
-  "Vardhman Textiles & Garments",
-  "Knitcraft Overseas",
-  "Zenith Garment Manufacturers",
-  "Classic Knits Export",
-];
+export const DEFAULT_FACTORIES: string[] = [];
 
 const INITIAL_MOCK_TRANSACTIONS: Record<string, { openingBalance: number; entries: Omit<LedgerTransaction, "balance">[] }> = {};
 

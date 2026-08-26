@@ -53,20 +53,35 @@ export function SourcingShell({ breadcrumb, children, fullHeight }: SourcingShel
   const pathname = usePathname() || "";
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Strict authentication verification
+    const isAuth = authService.isAuthenticated();
     const user = authService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      // Fallback check on API
-      authService.getMe().then((u) => {
-        if (u) setCurrentUser(u);
-      }).catch(() => {});
+
+    if (!isAuth || !user) {
+      // Not logged in -> Redirect immediately to login
+      router.replace("/login");
+      return;
     }
-  }, []);
+
+    setCurrentUser(user);
+    setAuthChecked(true);
+
+    // Also verify session with backend
+    authService.getMe().then((u) => {
+      if (u) {
+        setCurrentUser(u);
+      }
+    }).catch(() => {
+      // If token is invalid / expired, redirect to login
+      authService.logout();
+      router.replace("/login");
+    });
+  }, [router, pathname]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -81,7 +96,7 @@ export function SourcingShell({ breadcrumb, children, fullHeight }: SourcingShel
 
   function handleLogout() {
     authService.logout();
-    router.push("/login");
+    router.replace("/login");
   }
 
   // Auto-generate directory breadcrumbs from URL pathname
@@ -114,6 +129,17 @@ export function SourcingShell({ breadcrumb, children, fullHeight }: SourcingShel
   const displayName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split("@")[0] : "Merchandiser");
   const displayEmail = currentUser?.email || "merchandiser@guhaya.com";
   const displayRole = currentUser?.role || "Merchandiser";
+
+  if (!authChecked) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-black text-teal-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+          <span className="text-xs text-gray-400 font-medium">Authenticating Guhaya Sourcing...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

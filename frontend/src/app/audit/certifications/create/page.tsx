@@ -20,13 +20,7 @@ import {
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
 
-const DEFAULT_FACTORIES = [
-  "KRK Creationss",
-  "Shri Subam Tex",
-  "Apex Apparels Ltd",
-  "Guhaya Textiles",
-  "Velan Knits",
-];
+const DEFAULT_FACTORIES: string[] = [];
 
 export default function CreateCertificationPage() {
   const router = useRouter();

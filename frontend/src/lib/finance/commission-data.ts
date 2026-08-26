@@ -32,17 +32,9 @@ export type FactoryRate = {
   commissionPct: number;
 };
 
-export const COMMISSION_BRANDS = [
-  { id: "soxo", name: "SOXO" },
-  { id: "sinsay", name: "Sinsay" },
-] as const;
+export const COMMISSION_BRANDS: { id: string; name: string }[] = [];
 
-export const DEFAULT_FACTORY_RATES: FactoryRate[] = [
-  { id: "fr1", factory: "M.R.S. Garments", commissionPct: 2 },
-  { id: "fr2", factory: "Goodwill Exports", commissionPct: 2 },
-  { id: "fr3", factory: "KRK Creationss", commissionPct: 2 },
-  { id: "fr4", factory: "Sunrise Apparels", commissionPct: 2.5 },
-];
+export const DEFAULT_FACTORY_RATES: FactoryRate[] = [];
 
 export const FACTORY_DETAILS: Record<string, FactoryDetail> = {
   "Goodwill Exports": {

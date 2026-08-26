@@ -24,23 +24,7 @@ import {
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
 
-const DEFAULT_CERTS: CertificationRecord[] = [
-  {
-    id: "cert-1",
-    factoryName: "KRK Creationss",
-    certificationType: "SEDEX",
-    certificateNumber: "ZAA600153074",
-    issuingBody: "SEDEX",
-    issueDate: "2025-08-28",
-    expiryDate: "2026-08-28",
-    scope: "Garment Manufacturing",
-    auditGrade: "Approved",
-    notes: "-",
-    pdfUrl: "KRK SEDEX SMETA_ZAA600153074.pdf",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const DEFAULT_CERTS: CertificationRecord[] = [];
 
 function daysLeftBadge(expiryDate: string) {
   const exp = new Date(expiryDate);
@@ -88,7 +72,7 @@ export function CertificationsPage() {
 
   useEffect(() => {
     const loaded = loadCertifications();
-    setCertifications(loaded.length > 0 ? loaded : DEFAULT_CERTS);
+    setCertifications(loaded);
   }, []);
 
   function showToast(msg: string) {
