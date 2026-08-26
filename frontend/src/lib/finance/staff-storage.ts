@@ -9,40 +9,15 @@ export type StaffMember = {
 
 const STORAGE_KEY = "guhaya-staff";
 
-export const DEFAULT_STAFF: StaffMember[] = [
-  {
-    id: "e1",
-    name: "Hariharan",
-    role: "Merchandiser",
-    fixedSalary: 30000,
-    vehicleMileage: 15,
-    fuelAllowance: true,
-  },
-  {
-    id: "e2",
-    name: "Santhosh",
-    role: "Quality Controller",
-    fixedSalary: 28000,
-    vehicleMileage: 18,
-    fuelAllowance: true,
-  },
-  {
-    id: "e3",
-    name: "Karthickraja",
-    role: "Quality Controller",
-    fixedSalary: 26000,
-    vehicleMileage: 16,
-    fuelAllowance: false,
-  },
-];
+export const DEFAULT_STAFF: StaffMember[] = [];
 
 export function loadStaff(): StaffMember[] {
-  if (typeof window === "undefined") return DEFAULT_STAFF;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StaffMember[]) : DEFAULT_STAFF;
+    return raw ? (JSON.parse(raw) as StaffMember[]) : [];
   } catch {
-    return DEFAULT_STAFF;
+    return [];
   }
 }
 

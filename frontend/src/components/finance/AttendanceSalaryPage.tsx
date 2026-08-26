@@ -32,7 +32,7 @@ type Employee = {
   fuelAllowance: boolean;
 };
 
-const INITIAL_EMPLOYEES: Employee[] = DEFAULT_STAFF.map((s) => ({ ...s, advance: 0 }));
+const INITIAL_EMPLOYEES: Employee[] = [];
 
 type SalaryEntry = {
   km: number;
@@ -111,30 +111,35 @@ function formatDisplayDate(date: string) {
 }
 
 export function AttendanceSalaryPage() {
+  const [mounted, setMounted] = useState(false);
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(6);
   const [tab, setTab] = useState<SalaryTab>("attendance");
   const [fuelRate, setFuelRate] = useState(105);
-  const [employees, setEmployees] = useState<Employee[]>(() =>
-    loadStaff().map((s) => ({ ...s, advance: 0 })),
-  );
-  const [attendance, setAttendance] = useState<Record<string, Record<number, AttendanceCode>>>(() => {
-    const base: Record<string, Record<number, AttendanceCode>> = {};
-    INITIAL_EMPLOYEES.forEach((emp) => {
-      base[emp.id] = buildDefaultAttendance(2026, 6);
-    });
-    return base;
-  });
-  const [salaryEntries, setSalaryEntries] = useState<Record<string, SalaryEntry>>(() => {
-    const base: Record<string, SalaryEntry> = {};
-    INITIAL_EMPLOYEES.forEach((emp) => {
-      base[emp.id] = { km: 0, salaryDate: "" };
-    });
-    return base;
-  });
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(INITIAL_EMPLOYEES[0]?.id ?? "");
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, Record<number, AttendanceCode>>>({});
+  const [salaryEntries, setSalaryEntries] = useState<Record<string, SalaryEntry>>({});
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
 
   useEffect(() => {
+    setMounted(true);
+    const staff = loadStaff().map((s) => ({ ...s, advance: 0 }));
+    setEmployees(staff);
+    if (staff.length > 0) {
+      setSelectedEmployeeId(staff[0].id);
+      const baseAtt: Record<string, Record<number, AttendanceCode>> = {};
+      const baseSal: Record<string, SalaryEntry> = {};
+      staff.forEach((emp) => {
+        baseAtt[emp.id] = buildDefaultAttendance(2026, 6);
+        baseSal[emp.id] = { km: 0, salaryDate: "" };
+      });
+      setAttendance(baseAtt);
+      setSalaryEntries(baseSal);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     saveStaff(
       employees.map(({ id, name, role, fixedSalary, vehicleMileage, fuelAllowance }) => ({
         id,
@@ -145,7 +150,7 @@ export function AttendanceSalaryPage() {
         fuelAllowance,
       })),
     );
-  }, [employees]);
+  }, [employees, mounted]);
   const [advances, setAdvances] = useState<AdvancePayment[]>([]);
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
