@@ -40,20 +40,20 @@ interface GarmentSection {
 
 function defaultFabricRows(prefix: string): CostItemRow[] {
   return [
-    { id: `${prefix}-f1`, item: "Yarn", detail: "30's", value: 0 },
-    { id: `${prefix}-f2`, item: "Knit", detail: "—", value: 0 },
-    { id: `${prefix}-f3`, item: "Dye", detail: "—", value: 0 },
-    { id: `${prefix}-f4`, item: "Compacting", detail: "—", value: 0 },
+    { id: `${prefix}-f1`, item: "Yarn", detail: "", value: 0 },
+    { id: `${prefix}-f2`, item: "Knit", detail: "", value: 0 },
+    { id: `${prefix}-f3`, item: "Dye", detail: "", value: 0 },
+    { id: `${prefix}-f4`, item: "Compacting", detail: "", value: 0 },
   ];
 }
 
 function defaultGarmentRows(prefix: string): CostItemRow[] {
   return [
-    { id: `${prefix}-g1`, item: "Fabric", detail: "0.125", value: 0 },
-    { id: `${prefix}-g2`, item: "CMT", detail: "—", value: 0 },
-    { id: `${prefix}-g3`, item: "Print", detail: "—", value: 0 },
-    { id: `${prefix}-g4`, item: "Trims", detail: "—", value: 0 },
-    { id: `${prefix}-g5`, item: "FOB", detail: "—", value: 0 },
+    { id: `${prefix}-g1`, item: "Fabric", detail: "", value: 0 },
+    { id: `${prefix}-g2`, item: "CMT", detail: "", value: 0 },
+    { id: `${prefix}-g3`, item: "Print", detail: "", value: 0 },
+    { id: `${prefix}-g4`, item: "Trims", detail: "", value: 0 },
+    { id: `${prefix}-g5`, item: "FOB", detail: "", value: 0 },
   ];
 }
 
@@ -63,9 +63,9 @@ function createSection(index: number): GarmentSection {
     id: prefix,
     name: `Garment ${index + 1}`,
     fabricRows: defaultFabricRows(prefix),
-    wastagePct: 7,
+    wastagePct: 0,
     garmentRows: defaultGarmentRows(prefix),
-    overheadPct: 12,
+    overheadPct: 0,
   };
 }
 
@@ -120,11 +120,11 @@ export function CostingEditPage({ costingId, isNew }: Props) {
     if (costingId && !isNew) {
       const existing = getCostingById(costingId);
       if (existing) {
-        setBrand(existing.brand || "Sinsay");
+        setBrand(existing.brand || "");
         setCostingName(existing.name || "");
-        setFabricComposition(existing.fabricComposition || "100% COTTON");
-        setGsm(existing.gsm || "160");
-        setUsdRate(existing.exchangeRate || 92);
+        setFabricComposition(existing.fabricComposition || "");
+        setGsm(existing.gsm || "");
+        setUsdRate(existing.exchangeRate || 0);
         if (existing.image) setStyleImage(existing.image);
       }
     }
@@ -245,26 +245,26 @@ export function CostingEditPage({ costingId, isNew }: Props) {
     setStyleImage(url);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const costSheet: CostSheet = {
       id: costingId || `cost-${Date.now()}`,
       brand,
       name: costingName.trim() || "Untitled Costing",
-      styleNo: costingName.trim() || "STYLE-001",
+      styleNo: costingName.trim() || `STYLE-${Date.now().toString().slice(-4)}`,
       fabricComposition,
       gsm,
       currency: "USD",
       exchangeRate: usdRate,
-      targetQuantity: 10000,
+      targetQuantity: 0,
       garmentCount: noOfGarments,
       garmentSections: [],
       notes: "",
       usdFinalPrice: finalPriceUsd,
-      image: styleImage || "/models/chaos-tote.png",
+      image: styleImage || undefined,
       createdAt: new Date().toISOString().split("T")[0],
       updatedAt: new Date().toISOString().split("T")[0],
     };
-    saveOrUpdateCosting(costSheet);
+    await saveOrUpdateCosting(costSheet);
     setToastMsg("Costing saved!");
     setTimeout(() => router.push("/costing"), 1000);
   }
