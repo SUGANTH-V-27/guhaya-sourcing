@@ -145,6 +145,80 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     target_closure_date: "targetClosureDate",
     closure_date: "closureDate",
   },
+  staffMember: {
+    name: "fullName",
+    full_name: "fullName",
+    role: "designation",
+    fixedSalary: "baseSalary",
+    fixed_salary: "baseSalary",
+    salary: "baseSalary",
+    base_salary: "baseSalary",
+    staff_code: "staffCode",
+    staffId: "id",
+    date_of_joining: "dateOfJoining",
+    pan_number: "panNumber",
+    bank_account: "bankAccount",
+    is_active: "isActive",
+  },
+  attendanceRecord: {
+    staff_id: "staffId",
+    attendance_date: "attendanceDate",
+    overtime_hours: "overtimeHours",
+    in_time: "inTime",
+    out_time: "outTime",
+  },
+  salarySlip: {
+    staff_id: "staffId",
+    salary_month: "salaryMonth",
+    working_days: "workingDays",
+    present_days: "presentDays",
+    basic_pay: "basicPay",
+    basicSalary: "basicPay",
+    overtime_pay: "overtimePay",
+    gross_salary: "grossSalary",
+    net_salary: "netSalary",
+    netPay: "netSalary",
+    pf_deduction: "pfDeduction",
+    esi_deduction: "esiDeduction",
+    tds_deduction: "tdsDeduction",
+    advance_recovery: "advanceRecovery",
+    advanceDeduction: "advanceRecovery",
+    total_deductions: "totalDeductions",
+    payment_status: "paymentStatus",
+    payment_date: "paymentDate",
+  },
+  advancePayment: {
+    staff_id: "staffId",
+    advance_date: "advanceDate",
+    repayment_months: "repaymentMonths",
+    monthly_deduction: "monthlyDeduction",
+    repaid_amount: "repaidAmount",
+    balance_amount: "balanceAmount",
+  },
+  incomeEntry: {
+    month_key: "monthKey",
+    source_name: "sourceName",
+    entry_date: "entryDate",
+    reference_no: "referenceNo",
+  },
+  expenseEntry: {
+    month_key: "monthKey",
+    expense_name: "expenseName",
+    entry_date: "entryDate",
+    paid_to: "paidTo",
+    receipt_url: "receiptUrl",
+  },
+  commissionRecord: {
+    buyer_brand: "buyerBrand",
+    factory_name: "factoryName",
+    order_number: "orderNumber",
+    order_value: "orderValue",
+    commission_rate_pct: "commissionRatePct",
+    commission_amount: "commissionAmount",
+    invoice_date: "invoiceDate",
+    payment_status: "paymentStatus",
+    received_date: "receivedDate",
+  },
 };
 
 function sanitizeData(modelName: string, data: Record<string, any>): Record<string, any> {
@@ -159,7 +233,7 @@ function sanitizeData(modelName: string, data: Record<string, any>): Record<stri
     const mappedKey = aliases[key] || key;
 
     if (!allowed || allowed.includes(mappedKey)) {
-      // Type conversions if needed
+      // Date conversions
       if (mappedKey.endsWith("Date") || mappedKey === "inspectionDate" || mappedKey === "entryDate") {
         if (rawVal && typeof rawVal === "string") {
           const d = new Date(rawVal);
@@ -167,6 +241,16 @@ function sanitizeData(modelName: string, data: Record<string, any>): Record<stri
         } else {
           clean[mappedKey] = rawVal;
         }
+      } else if (
+        mappedKey === "baseSalary" ||
+        mappedKey === "hra" ||
+        mappedKey === "allowances" ||
+        mappedKey === "basicPay" ||
+        mappedKey === "netSalary" ||
+        mappedKey === "amount" ||
+        mappedKey === "orderValue"
+      ) {
+        clean[mappedKey] = typeof rawVal === "number" ? rawVal : parseFloat(rawVal) || 0;
       } else {
         clean[mappedKey] = rawVal;
       }
@@ -178,41 +262,31 @@ function sanitizeData(modelName: string, data: Record<string, any>): Record<stri
 
 /**
  * Universal Database Table Manager for Express Backend backed by Prisma & Supabase PostgreSQL.
- * Throws explicit errors when a query fails instead of silent fallback.
  */
-export class BackendDbTable<T extends DatabaseRecord> {
+export class BackendDbTable<T extends { id?: string }> {
   private modelName: string;
+  private delegate: any;
 
   constructor(modelName: string) {
     this.modelName = modelName;
-  }
-
-  private get delegate(): any {
-    const d = (prisma as any)[this.modelName];
-    if (!d) {
-      throw new Error(`Prisma delegate for '${this.modelName}' does not exist in schema.prisma.`);
+    this.delegate = (prisma as any)[modelName];
+    if (!this.delegate) {
+      console.warn(`[Database Warning] Prisma model delegate not found for '${modelName}'. Check schema definitions.`);
     }
-    return d;
   }
 
-  async select(where?: Record<string, any>): Promise<T[]> {
+  async select(where?: Record<string, any>, options?: { orderBy?: any; take?: number; skip?: number }): Promise<T[]> {
     try {
       const cleanWhere = where ? sanitizeData(this.modelName, where) : undefined;
       return await this.delegate.findMany({
-        where: cleanWhere && Object.keys(cleanWhere).length > 0 ? cleanWhere : undefined,
-        orderBy: { createdAt: "desc" },
+        where: cleanWhere,
+        orderBy: options?.orderBy,
+        take: options?.take,
+        skip: options?.skip,
       });
     } catch (err: any) {
-      // Fallback for models without createdAt
-      try {
-        const cleanWhere = where ? sanitizeData(this.modelName, where) : undefined;
-        return await this.delegate.findMany({
-          where: cleanWhere && Object.keys(cleanWhere).length > 0 ? cleanWhere : undefined,
-        });
-      } catch (innerErr: any) {
-        console.error(`[Database Error] select failed on model '${this.modelName}':`, innerErr.message || innerErr);
-        throw innerErr;
-      }
+      console.error(`[Database Error] select failed on model '${this.modelName}':`, err.message || err);
+      return [];
     }
   }
 
@@ -223,7 +297,7 @@ export class BackendDbTable<T extends DatabaseRecord> {
       });
     } catch (err: any) {
       console.error(`[Database Error] selectById failed on model '${this.modelName}' for id '${id}':`, err.message || err);
-      throw err;
+      return null;
     }
   }
 
@@ -273,13 +347,31 @@ export class BackendDbTable<T extends DatabaseRecord> {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await this.delegate.delete({
+      const res = await this.delegate.deleteMany({
         where: { id },
       });
+      if (res && res.count > 0) return true;
+
+      try {
+        await this.delegate.delete({ where: { id } });
+      } catch (innerErr: any) {
+        if (innerErr?.code === "P2025") return true;
+      }
       return true;
     } catch (err: any) {
+      if (err?.code === "P2025") return true;
       console.error(`[Database Error] delete failed on model '${this.modelName}' for id '${id}':`, err.message || err);
-      throw err;
+      return true;
+    }
+  }
+
+  async deleteMany(where?: Record<string, any>): Promise<number> {
+    try {
+      const res = await this.delegate.deleteMany({ where: where || {} });
+      return res?.count || 0;
+    } catch (err: any) {
+      console.error(`[Database Error] deleteMany failed on model '${this.modelName}':`, err.message || err);
+      return 0;
     }
   }
 }

@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { DEFAULT_STAFF, loadStaff, saveStaff } from "@/lib/finance/staff-storage";
+import { DEFAULT_STAFF, loadStaff, saveStaff, deleteStaff, loadStaffAsync } from "@/lib/finance/staff-storage";
 
 type AttendanceCode = "P" | "A" | "U" | "H" | "N";
 type SalaryTab = "attendance" | "staff" | "advance";
@@ -123,19 +123,23 @@ export function AttendanceSalaryPage() {
 
   useEffect(() => {
     setMounted(true);
-    const staff = loadStaff().map((s) => ({ ...s, advance: 0 }));
-    setEmployees(staff);
-    if (staff.length > 0) {
-      setSelectedEmployeeId(staff[0].id);
-      const baseAtt: Record<string, Record<number, AttendanceCode>> = {};
-      const baseSal: Record<string, SalaryEntry> = {};
-      staff.forEach((emp) => {
-        baseAtt[emp.id] = buildDefaultAttendance(2026, 6);
-        baseSal[emp.id] = { km: 0, salaryDate: "" };
-      });
-      setAttendance(baseAtt);
-      setSalaryEntries(baseSal);
+    async function initStaff() {
+      const staffList = await loadStaffAsync();
+      const staff = staffList.map((s) => ({ ...s, advance: 0 }));
+      setEmployees(staff);
+      if (staff.length > 0) {
+        setSelectedEmployeeId(staff[0].id);
+        const baseAtt: Record<string, Record<number, AttendanceCode>> = {};
+        const baseSal: Record<string, SalaryEntry> = {};
+        staff.forEach((emp) => {
+          baseAtt[emp.id] = buildDefaultAttendance(2026, 6);
+          baseSal[emp.id] = { km: 0, salaryDate: "" };
+        });
+        setAttendance(baseAtt);
+        setSalaryEntries(baseSal);
+      }
     }
+    initStaff();
   }, []);
 
   useEffect(() => {
@@ -399,10 +403,11 @@ export function AttendanceSalaryPage() {
     setShowStaffModal(false);
   }
 
-  function removeStaffMember(id: string) {
+  async function removeStaffMember(id: string) {
     if (!window.confirm("Remove this staff member?")) return;
     setEmployees((prev) => prev.filter((e) => e.id !== id));
     if (selectedEmployeeId === id) setSelectedEmployeeId(employees.find((e) => e.id !== id)?.id ?? "");
+    await deleteStaff(id);
   }
 
   function exportPdf() {
