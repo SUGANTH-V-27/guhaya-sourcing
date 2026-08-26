@@ -87,36 +87,34 @@ export default function FinalInspectionPage({
 
   // ── PO Selection Pop-up Modal State ────────────────────────────────────────
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
-  const [availablePos] = useState([
-    { poNo: "PI_NF_001", channel: "Retail", orderQty: 5760 },
-  ]);
-  const [selectedPos, setSelectedPos] = useState<string[]>(["PI_NF_001"]);
+  const [availablePos, setAvailablePos] = useState<{ poNo: string; channel: string; orderQty: number }[]>([]);
+  const [selectedPos, setSelectedPos] = useState<string[]>([]);
 
   // ── Form State for New Final Inspection ────────────────────────────────────
-  const [brand] = useState("SOXO");
-  const [modelCode] = useState(modelId || "5906482949644");
-  const [department] = useState("Home Textiles");
-  const [productDesc] = useState("CHAOS Tote Bag");
-  const [approvedSample, setApprovedSample] = useState("Available");
+  const [brand, setBrand] = useState("");
+  const [modelCode, setModelCode] = useState(modelId || "");
+  const [department, setDepartment] = useState("");
+  const [productDesc, setProductDesc] = useState("");
+  const [approvedSample, setApprovedSample] = useState("");
 
-  const [vendorName] = useState("NANDHI FABRICS");
-  const [factoryAddress] = useState("34- KAMARAJAPURAM (EAST), KARUR -639002, (TN) INDIA");
-  const [fabric] = useState("100% Cotton ; WOVEN");
-  const [gsm] = useState("280 GSM");
-  const [inspectionDate, setInspectionDate] = useState("2026-08-23");
-  const [inspectorName, setInspectorName] = useState("Suganth V (Lead Auditor)");
+  const [vendorName, setVendorName] = useState("");
+  const [factoryAddress, setFactoryAddress] = useState("");
+  const [fabric, setFabric] = useState("");
+  const [gsm, setGsm] = useState("");
+  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [inspectorName, setInspectorName] = useState("");
 
   const [overallConclusion, setOverallConclusion] = useState<"PASS" | "FAIL">("PASS");
 
   // ── 7 Inspection Result Summary Modules ────────────────────────────────────
   const [sections, setSections] = useState<ChecklistSection[]>([
-    { key: "qty", title: "A. Quantity", status: "PASSED", notes: "100% carton count and 5,760 pcs verified." },
-    { key: "packing", title: "B. Packing Audit – Retail", status: "PASSED", notes: "Barcodes scanned 100% readable." },
-    { key: "conformity", title: "C. Product Conformity", status: "PASSED", notes: "Print sharpness and color match approved standard." },
-    { key: "labeling", title: "D. Labeling & Trims", status: "PASSED", notes: "Wash care and fiber composition accurate." },
-    { key: "gsm", title: "E. GSM", status: "PASSED", notes: "Evaluated 280 GSM (Tolerance: ±3%)." },
-    { key: "aql", title: "F. AQL", status: "PASSED", notes: "AQL 2.5 Major: 0 found (Max 7), Minor: 2 found (Max 10)." },
-    { key: "measurement", title: "G. Measurement", status: "PASSED", notes: "All POM measurements within tolerance." },
+    { key: "qty", title: "A. Quantity", status: "PASSED", notes: "" },
+    { key: "packing", title: "B. Packing Audit – Retail", status: "PASSED", notes: "" },
+    { key: "conformity", title: "C. Product Conformity", status: "PASSED", notes: "" },
+    { key: "labeling", title: "D. Labeling & Trims", status: "PASSED", notes: "" },
+    { key: "gsm", title: "E. GSM", status: "PASSED", notes: "" },
+    { key: "aql", title: "F. AQL", status: "PASSED", notes: "" },
+    { key: "measurement", title: "G. Measurement", status: "PASSED", notes: "" },
   ]);
 
   // ── Style Pictures State ───────────────────────────────────────────────────

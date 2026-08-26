@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Banknote,
   Calendar,
@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import financeService from "../../../../services/finance.service";
 
 interface StaffSalaryRecord {
   id: string;
@@ -45,8 +46,41 @@ const INITIAL_STAFF: StaffSalaryRecord[] = [];
 export default function SalaryManagementPage() {
   const [records, setRecords] = useState<StaffSalaryRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+  );
   const [selectedSlip, setSelectedSlip] = useState<StaffSalaryRecord | null>(null);
+
+  useEffect(() => {
+    async function loadSalaries() {
+      try {
+        const data = await financeService.getSalaries();
+        if (data && data.length > 0) {
+          const mapped = data.map((item: any) => ({
+            id: item.id,
+            name: item.fullName || item.name || "Staff",
+            employeeId: item.staffCode || item.staffId || "EMP",
+            designation: item.designation || "Staff",
+            department: item.department || "Merchandising",
+            basicSalary: Number(item.basicPay) || 0,
+            hra: Number(item.hra) || 0,
+            conveyance: Number(item.allowances) || 0,
+            overtimeHours: Number(item.overtimeHours) || 0,
+            overtimePay: Number(item.overtimePay) || 0,
+            advanceDeduction: Number(item.advanceRecovery) || 0,
+            pfDeduction: Number(item.pfDeduction) || 0,
+            netPay: Number(item.netSalary) || 0,
+            paymentStatus: (item.paymentStatus || "Paid") as any,
+            month: item.salaryMonth || new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+          }));
+          setRecords(mapped);
+        }
+      } catch (err) {
+        console.warn("Failed to load salaries:", err);
+      }
+    }
+    loadSalaries();
+  }, []);
 
   const filteredRecords = records.filter(
     (r) =>

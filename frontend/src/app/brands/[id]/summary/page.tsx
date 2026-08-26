@@ -40,17 +40,26 @@ export default function BrandSummaryPage({
   const { id: brandId } = React.use(params);
   const [brand, setBrand] = useState<BrandEntity | null>(null);
   const [brandModels, setBrandModels] = useState<ModelEntity[]>([]);
+  const [bookings, setBookings] = useState<BrandBookingItem[]>([]);
+  const [caprs, setCaprs] = useState<CAPRRecord[]>([]);
+  const [couriers, setCouriers] = useState<CourierShipment[]>([]);
 
   useEffect(() => {
     async function loadData() {
       if (!brandId) return;
       try {
-        const [brandData, modelsData] = await Promise.all([
+        const [brandData, modelsData, bookingData, caprData, courierData] = await Promise.all([
           BrandsApi.getById(brandId),
           ModelsApi.getAll(),
+          BrandsApi.getBookings(brandId),
+          BrandsApi.getCaprRecords(brandId),
+          BrandsApi.getCourierShipments(brandId),
         ]);
         if (brandData) setBrand(brandData);
         if (modelsData) setBrandModels(modelsData.filter((m) => m.brandId === brandId));
+        if (bookingData) setBookings(bookingData);
+        if (caprData) setCaprs(caprData);
+        if (courierData) setCouriers(courierData);
       } catch (err) {
         console.warn("Failed to load brand summary data:", err);
       }
@@ -58,10 +67,10 @@ export default function BrandSummaryPage({
     loadData();
   }, [brandId]);
 
-  const totalBookedQty = INITIAL_BRAND_BOOKINGS.reduce((sum: number, b: BrandBookingItem) => sum + b.confirmedQty, 0);
-  const totalProjectedQty = INITIAL_BRAND_BOOKINGS.reduce((sum: number, b: BrandBookingItem) => sum + b.projectedQty, 0);
-  const openCaprCount = INITIAL_CAPR_RECORDS.filter((c: CAPRRecord) => c.status !== "Closed").length;
-  const inTransitShipments = INITIAL_COURIER_SHIPMENTS.filter((s: CourierShipment) => s.status === "In Transit").length;
+  const totalBookedQty = bookings.reduce((sum: number, b: BrandBookingItem) => sum + b.confirmedQty, 0);
+  const totalProjectedQty = bookings.reduce((sum: number, b: BrandBookingItem) => sum + b.projectedQty, 0);
+  const openCaprCount = caprs.filter((c: CAPRRecord) => c.status !== "Closed").length;
+  const inTransitShipments = couriers.filter((s: CourierShipment) => s.status === "In Transit").length;
 
   return (
     <SourcingShell

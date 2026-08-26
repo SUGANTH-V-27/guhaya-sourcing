@@ -90,22 +90,15 @@ export default function MidlineInspectionPage({
   const [isSaved, setIsSaved] = useState(false);
 
   // ── Form State for New/Edit Mid-Line Inspection ────────────────────────────
-  const [styleNumber] = useState(modelId || "5906482949644");
-  const [poNumber] = useState("PI_NF_001");
-  const [orderQty] = useState(5760);
-  const [factory] = useState("NANDHI FABRICS");
-  const [midlineDate, setMidlineDate] = useState("2026-08-23");
+  const [styleNumber, setStyleNumber] = useState(modelId || "");
+  const [poNumber, setPoNumber] = useState("");
+  const [orderQty, setOrderQty] = useState<number | string>("");
+  const [factory, setFactory] = useState("");
+  const [midlineDate, setMidlineDate] = useState(new Date().toISOString().split("T")[0]);
   const [outputQty, setOutputQty] = useState<string>("");
   const [packedQty, setPackedQty] = useState<string>("");
 
-  const [defects, setDefects] = useState<DefectRow[]>([
-    { id: "d-1", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-2", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-3", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-4", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-5", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-6", description: "", critical: 0, major: 0, minor: 0 },
-  ]);
+  const [defects, setDefects] = useState<DefectRow[]>([]);
 
   // ── Packing Checklist State ────────────────────────────────────────────────
   const [packingList, setPackingList] = useState<PackingCheckRow[]>([
@@ -191,7 +184,7 @@ export default function MidlineInspectionPage({
       id: `mid-${Date.now()}`,
       styleNumber,
       poNumber,
-      orderQty,
+      orderQty: Number(orderQty) || 0,
       factory,
       midlineDate,
       outputQty: outputNumber,

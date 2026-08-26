@@ -44,11 +44,11 @@ export default function FirstGarmentOutputPage({
   const { id: modelId } = React.use(params);
 
   // ── Header Details State ───────────────────────────────────────────────────
-  const [styleCode] = useState(modelId || "5906482949644");
-  const [orderNo] = useState("PI_NF_001");
-  const [factory] = useState("NANDHI FABRICS");
+  const [styleCode, setStyleCode] = useState(modelId || "");
+  const [orderNo, setOrderNo] = useState("");
+  const [factory, setFactory] = useState("");
   const [reviewDate, setReviewDate] = useState(new Date().toISOString().split("T")[0]);
-  const [reviewedBy, setReviewedBy] = useState("Suganth V (Quality Lead)");
+  const [reviewedBy, setReviewedBy] = useState("");
 
   // ── Element Inspection Rows ────────────────────────────────────────────────
   const [rows, setRows] = useState<ElementRow[]>([

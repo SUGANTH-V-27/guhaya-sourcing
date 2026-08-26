@@ -48,6 +48,10 @@ export const BrandsApi = {
     return await db.bookingTrackers.query((b) => b.brandId === brandId);
   },
 
+  async getBookings(brandId: string) {
+    return await db.bookingTrackers.query((b) => b.brandId === brandId);
+  },
+
   async getFactoryCapacities(brandId?: string) {
     return await db.factoryCapacities.getAll();
   },
@@ -57,6 +61,10 @@ export const BrandsApi = {
   },
 
   async getCaprIssues(brandId: string) {
+    return await db.caprIssues.query((c) => c.brandId === brandId);
+  },
+
+  async getCaprRecords(brandId: string) {
     return await db.caprIssues.query((c) => c.brandId === brandId);
   },
 };

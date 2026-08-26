@@ -42,31 +42,31 @@ export default function CreateBrandPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const [brandColumns, setBrandColumns] = useState<BrandColumns>({
-    seasons: ["Summer"],
-    intake: ["2025"],
-    shipment: ["Air"],
-    dcType: ["Primary"],
-    dcPort: ["Chennai"],
+    seasons: [""],
+    intake: [""],
+    shipment: [""],
+    dcType: [""],
+    dcPort: [""],
   });
 
   const [rows, setRows] = useState<BuyerRow[]>([
     {
-      department: "Menswear",
-      subclass: "Shirts",
-      buyer: "John",
-      assistant: "Alex",
-      manager: "David",
+      department: "",
+      subclass: "",
+      buyer: "",
+      assistant: "",
+      manager: "",
     },
   ]);
 
   const [factoryRows, setFactoryRows] = useState<FactoryRow[]>([
     {
-      code: "F001",
-      name: "ABC Factory",
-      address: "Chennai",
+      code: "",
+      name: "",
+      address: "",
       gstin: "",
-      state: "TAMILNADU",
-      stateCode: "33",
+      state: "",
+      stateCode: "",
     },
   ]);
 

@@ -53,36 +53,7 @@ export default function ModelTrimmingPage({
   }, [modelId]);
 
   // ── Trimming BOM State ─────────────────────────────────────────────────────
-  const [trims, setTrims] = useState<TrimmingBOMRow[]>([
-    {
-      id: "trim-1",
-      trimmingId: "TR-001",
-      description: "Main Label",
-      quantity: "5,760",
-      version: "v1",
-      optionColour: "Black",
-      referenceLayoutName: "Main_Label_Artwork_V1.pdf",
-      approvalStatus: "Pending",
-    },
-    {
-      id: "trim-2",
-      trimmingId: "TR-002",
-      description: "Care Label",
-      quantity: "5,760",
-      version: "v1",
-      optionColour: "White / Black Print",
-      approvalStatus: "Approved",
-    },
-    {
-      id: "trim-3",
-      trimmingId: "TR-003",
-      description: "Hang Tag with Cotton Cord",
-      quantity: "5,760",
-      version: "v2",
-      optionColour: "Kraft Brown",
-      approvalStatus: "Pending",
-    },
-  ]);
+  const [trims, setTrims] = useState<TrimmingBOMRow[]>([]);
 
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [isSaved, setIsSaved] = useState(false);

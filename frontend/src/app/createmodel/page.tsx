@@ -20,32 +20,32 @@ function CreateModelContent() {
 
   // Form Fields
   const [formData, setFormData] = useState<Record<string, string>>({
-    Factory: "Factory A",
-    Season: "Summer",
-    Intake: "2026",
-    "Product Group": "Menswear",
-    "Sub-class": "Shirts",
-    Buyer: "John",
-    "Buyer Assistant": "Alex",
-    Price: "12.50",
-    "Payment Terms": "TT AGAINST BL",
-    "Inco Terms": "FOB",
-    "Shipment Type": "Sea",
+    Factory: "",
+    Season: "",
+    Intake: "",
+    "Product Group": "",
+    "Sub-class": "",
+    Buyer: "",
+    "Buyer Assistant": "",
+    Price: "",
+    "Payment Terms": "",
+    "Inco Terms": "",
+    "Shipment Type": "",
     "PO Date": new Date().toISOString().split("T")[0],
-    "Order Qty": "5000",
-    "Order Value": "62500",
+    "Order Qty": "",
+    "Order Value": "",
   });
 
   const [rows, setRows] = useState<any[]>([createRow(5)]);
 
   function createRow(sizeCount: number) {
     return {
-      po: "PO-001",
-      dcType: "Primary",
-      dcPort: "Hamburg",
-      sizes: Array(sizeCount).fill("1000"),
-      total: "5000",
-      sailing: "Direct",
+      po: "",
+      dcType: "",
+      dcPort: "",
+      sizes: Array(sizeCount).fill(""),
+      total: "",
+      sailing: "",
     };
   }
 
@@ -56,7 +56,7 @@ function CreateModelContent() {
     setRows((prev) =>
       prev.map((row) => ({
         ...row,
-        sizes: Array(val).fill("1000"),
+        sizes: Array(val).fill(""),
       }))
     );
   };

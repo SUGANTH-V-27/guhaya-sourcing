@@ -70,103 +70,33 @@ export default function PreProductionMeetingPage({
   const { id: modelId } = React.use(params);
 
   // ── General Info State ─────────────────────────────────────────────────────
-  const [brand] = useState("SOXO");
-  const [modelNo] = useState(modelId || "5906482949644");
-  const [poNumber] = useState("PI_NF_001");
-  const [department] = useState("Home Textiles");
-  const [productDesc] = useState("CHAOS Tote Bag");
-  const [approvedSample, setApprovedSample] = useState("Available");
-  const [merchandiser, setMerchandiser] = useState("Suganth V");
+  const [brand, setBrand] = useState("");
+  const [modelNo, setModelNo] = useState(modelId || "");
+  const [poNumber, setPoNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [productDesc, setProductDesc] = useState("");
+  const [approvedSample, setApprovedSample] = useState("");
+  const [merchandiser, setMerchandiser] = useState("");
 
-  const [factoryName] = useState("NANDHI FABRICS");
-  const [factoryAddress] = useState("34- KAMARAJAPURAM (EAST), KARUR -639002, (TN) INDIA");
-  const [fabric] = useState("WOVEN");
-  const [composition] = useState("100% Cotton");
-  const [gsm] = useState("280 GSM");
+  const [factoryName, setFactoryName] = useState("");
+  const [factoryAddress, setFactoryAddress] = useState("");
+  const [fabric, setFabric] = useState("");
+  const [composition, setComposition] = useState("");
+  const [gsm, setGsm] = useState("");
   const [ppDate, setPpDate] = useState(new Date().toISOString().split("T")[0]);
-  const [qualityController, setQualityController] = useState("S. Ramanathan (Lead QC)");
+  const [qualityController, setQualityController] = useState("");
 
   // ── PP Meeting Summary Checklist State ─────────────────────────────────────
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    size_set: true,
-    trims: true,
-    tna: true,
-    license: false,
-    detailed_checklist: true,
-  });
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
 
   // ── Size Set Evaluation Measurement Sections ───────────────────────────────
-  const [measurementSections, setMeasurementSections] = useState<MeasurementSection[]>([
-    {
-      id: "sec-1",
-      name: "TOP",
-      color: "Blue",
-      bannerColor: "bg-blue-600",
-      date: "2026-08-20",
-      description: "Main Body Construction & Gusset",
-      rows: [
-        {
-          id: "r-1",
-          pom: "#",
-          description: "Total Width (Flat measurement)",
-          tol: "±1.0",
-          spec: "42.0",
-          dev1st: "42.5",
-          dev2nd: "42.0",
-        },
-        {
-          id: "r-2",
-          pom: "#",
-          description: "Total Height (HPS to bottom seam)",
-          tol: "±1.0",
-          spec: "46.0",
-          dev1st: "46.0",
-          dev2nd: "46.0",
-        },
-      ],
-      comments: "All seam allowances must be overlocked before topstitching.",
-    },
-    {
-      id: "sec-2",
-      name: "SHORTS",
-      color: "Green",
-      bannerColor: "bg-emerald-600",
-      date: "2026-08-20",
-      description: "Handle Straps & Reinforced Box-X Stitch",
-      rows: [
-        {
-          id: "r-3",
-          pom: "#",
-          description: "Handle Drop Length",
-          tol: "±0.5",
-          spec: "28.0",
-          dev1st: "28.2",
-          dev2nd: "28.0",
-        },
-      ],
-      comments: "Box-X cross stitches verified for 18kg load testing.",
-    },
-  ]);
+  const [measurementSections, setMeasurementSections] = useState<MeasurementSection[]>([]);
 
   // ── Custom Trims State ─────────────────────────────────────────────────────
-  const [trimmings, setTrimmings] = useState<CustomTrimItem[]>([
-    {
-      id: "trim-1",
-      name: "Custom Trim",
-      badge: "Extra",
-      remarks: "Woven main label approved under D65 light source.",
-    },
-  ]);
+  const [trimmings, setTrimmings] = useState<CustomTrimItem[]>([]);
 
   // ── Meeting Minutes State ──────────────────────────────────────────────────
-  const [minutesSections, setMinutesSections] = useState<MeetingSection[]>([
-    {
-      id: "min-sec-1",
-      title: "Garment Type",
-      minutes: ["Sewing line needle size #14 strictly enforced for canvas weave."],
-      criticalAreas: [],
-    },
-  ]);
+  const [minutesSections, setMinutesSections] = useState<MeetingSection[]>([]);
 
   const [ppMeetingResult, setPpMeetingResult] = useState<"PASS" | "FAIL">("PASS");
   const [stylePhoto, setStylePhoto] = useState<string | null>(null);

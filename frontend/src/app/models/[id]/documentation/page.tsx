@@ -65,29 +65,10 @@ export default function ModelDocumentationPage({
   }, [modelId]);
 
   // ── Tech Pack Rows ─────────────────────────────────────────────────────────
-  const [techPacks, setTechPacks] = useState<TechPackRow[]>([
-    {
-      id: "tp-1",
-      originalTechPack: "1st Tech Pack",
-      receivedDate: "2026-08-20",
-      remarks: "",
-    },
-  ]);
+  const [techPacks, setTechPacks] = useState<TechPackRow[]>([]);
 
   // ── Model Comments Rows ────────────────────────────────────────────────────
-  const [comments, setComments] = useState<ModelCommentRow[]>([
-    {
-      id: "com-1",
-      sample: "",
-      submission: "",
-      sentDate: "",
-      commentsDate: "",
-      designerStatus: "PENDING",
-      graphicStatus: "PENDING",
-      technologistStatus: "PENDING",
-      remarks: "",
-    },
-  ]);
+  const [comments, setComments] = useState<ModelCommentRow[]>([]);
 
   // ── Overall Approval Status ────────────────────────────────────────────────
   const [overallStatus, setOverallStatus] = useState<OverallStatus>("PENDING");

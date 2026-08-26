@@ -35,23 +35,15 @@ export default function ModelMeasurementsPage({
   const [garmentLabels, setGarmentLabels] = useState<string[]>(["Garment 1"]);
 
   // ── Sizes State ────────────────────────────────────────────────────────────
-  const [sizes, setSizes] = useState<string[]>(["ONE S"]);
+  const [sizes, setSizes] = useState<string[]>([]);
   const [newSizeInput, setNewSizeInput] = useState("");
 
   // ── Uploaded Images State ──────────────────────────────────────────────────
   const [chartImages, setChartImages] = useState<Record<number, { name: string; url?: string }>>({});
-  const [wayToMeasureImages, setWayToMeasureImages] = useState<Array<{ name: string; url?: string }>>([
-    { name: "" },
-  ]);
+  const [wayToMeasureImages, setWayToMeasureImages] = useState<Array<{ name: string; url?: string }>>([]);
 
   // ── Spec Table Rows State ──────────────────────────────────────────────────
-  const [specRows, setSpecRows] = useState<MeasurementRow[]>([
-    { pom: "A. Total Width (Flat)", tolerance: "±1.0 cm", sizes: { "ONE S": "42.0" } },
-    { pom: "B. Total Height (HPS to Bottom)", tolerance: "±1.0 cm", sizes: { "ONE S": "46.0" } },
-    { pom: "C. Handle Drop Length", tolerance: "±0.5 cm", sizes: { "ONE S": "28.0" } },
-    { pom: "D. Handle Strap Width", tolerance: "±0.2 cm", sizes: { "ONE S": "3.5" } },
-    { pom: "E. Bottom Gusset Depth", tolerance: "±0.5 cm", sizes: { "ONE S": "10.0" } },
-  ]);
+  const [specRows, setSpecRows] = useState<MeasurementRow[]>([]);
 
   const [isSaved, setIsSaved] = useState(false);
 

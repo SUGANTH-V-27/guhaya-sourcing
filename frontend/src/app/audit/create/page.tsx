@@ -21,14 +21,14 @@ export default function CreateAuditPage() {
   const [auditType, setAuditType] = useState<"social-compliance" | "technical-audit" | "certification">(
     "social-compliance"
   );
-  const [factoryName, setFactoryName] = useState("Apex Apparels Ltd");
-  const [factoryLocation, setFactoryLocation] = useState("Tirupur, Tamil Nadu");
-  const [auditorName, setAuditorName] = useState("S. Murugan (Lead Auditor)");
+  const [factoryName, setFactoryName] = useState("");
+  const [factoryLocation, setFactoryLocation] = useState("");
+  const [auditorName, setAuditorName] = useState("");
   const [auditDate, setAuditDate] = useState(new Date().toISOString().split("T")[0]);
   const [validUntil, setValidUntil] = useState(
     new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
-  const [scope, setScope] = useState("Complete factory premises, cutting, sewing, finishing & effluent treatment.");
+  const [scope, setScope] = useState("");
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();

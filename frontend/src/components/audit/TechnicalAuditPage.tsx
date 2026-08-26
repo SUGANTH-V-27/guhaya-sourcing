@@ -20,6 +20,7 @@ import {
   DEFAULT_TECHNICAL_MODULES,
   type TechnicalAudit,
 } from "@/lib/audit/technical-audit-data";
+import { db } from "@/lib/db/db-client";
 
 const DEFAULT_AUDITS: TechnicalAudit[] = [];
 
@@ -35,13 +36,20 @@ export function TechnicalAuditPage() {
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formLocation, setFormLocation] = useState("");
   const [formAuditor, setFormAuditor] = useState("");
-  const [formAvailable, setFormAvailable] = useState("40");
-  const [formMissing, setFormMissing] = useState("0");
-  const [formTotal, setFormTotal] = useState("64");
+  const [formAvailable, setFormAvailable] = useState("");
+  const [formMissing, setFormMissing] = useState("");
+  const [formTotal, setFormTotal] = useState("");
 
   useEffect(() => {
-    const loaded = loadTechnicalAudits();
-    setAudits(loaded);
+    async function fetchAudits() {
+      try {
+        const data = await db.technicalAudits.getAll();
+        setAudits(data);
+      } catch {
+        setAudits(loadTechnicalAudits());
+      }
+    }
+    fetchAudits();
   }, []);
 
   function showToast(msg: string) {
@@ -52,13 +60,13 @@ export function TechnicalAuditPage() {
   function openCreate() {
     setEditingId(null);
     setFormFactory("");
-    setFormBrand("Sinsay");
+    setFormBrand("");
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormLocation("");
-    setFormAuditor("Senior QA Auditor");
-    setFormAvailable("40");
-    setFormMissing("0");
-    setFormTotal("64");
+    setFormAuditor("");
+    setFormAvailable("");
+    setFormMissing("");
+    setFormTotal("");
     setShowModal(true);
   }
 

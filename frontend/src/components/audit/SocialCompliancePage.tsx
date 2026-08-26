@@ -22,6 +22,7 @@ import {
   type SocialComplianceAudit,
   type SectionScore,
 } from "@/lib/audit/social-compliance-data";
+import { db } from "@/lib/db/db-client";
 
 // Grade color helpers
 function gradeColor(grade: string) {
@@ -47,14 +48,21 @@ export function SocialCompliancePage() {
   const [formFactory, setFormFactory] = useState("");
   const [formAddress, setFormAddress] = useState("");
   const [formAuditor, setFormAuditor] = useState("");
-  const [formScore, setFormScore] = useState("90");
-  const [formGrade, setFormGrade] = useState("A");
-  const [formCritical, setFormCritical] = useState("0");
-  const [formTotal, setFormTotal] = useState("17");
+  const [formScore, setFormScore] = useState("");
+  const [formGrade, setFormGrade] = useState("");
+  const [formCritical, setFormCritical] = useState("");
+  const [formTotal, setFormTotal] = useState("");
 
   useEffect(() => {
-    const loaded = loadSocialAudits();
-    setAudits(loaded);
+    async function fetchAudits() {
+      try {
+        const data = await db.socialComplianceAudits.getAll();
+        setAudits(data);
+      } catch {
+        setAudits(loadSocialAudits());
+      }
+    }
+    fetchAudits();
   }, []);
 
   function showToast(msg: string) {

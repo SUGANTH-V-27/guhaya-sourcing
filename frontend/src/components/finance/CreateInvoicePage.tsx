@@ -101,16 +101,14 @@ function poToCommissionRow(po: CommissionPo): InvoiceCommissionRow {
 export function CreateInvoicePage({ editId }: { editId?: string }) {
   const router = useRouter();
   const isEdit = Boolean(editId);
-  const [unpaidPos] = useState<CommissionPo[]>(() =>
-    buildMockCommissionPos().filter((p) => p.status === "unpaid"),
-  );
+  const [unpaidPos, setUnpaidPos] = useState<CommissionPo[]>([]);
 
   const today = new Date();
   const [date, setDate] = useState(today.toISOString().slice(0, 10));
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceNumberTouched, setInvoiceNumberTouched] = useState(false);
   const [brandName, setBrandName] = useState("");
-  const [hsnCode, setHsnCode] = useState("9988");
+  const [hsnCode, setHsnCode] = useState("");
   const [commissionRows, setCommissionRows] = useState<InvoiceCommissionRow[]>([]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([newLineItem()]);
   const [invoiceTo, setInvoiceTo] = useState({
@@ -120,9 +118,9 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     state: "",
     code: "",
   });
-  const [bankDiscountPct, setBankDiscountPct] = useState(3);
-  const [cgstPct, setCgstPct] = useState(2.5);
-  const [sgstPct, setSgstPct] = useState(2.5);
+  const [bankDiscountPct, setBankDiscountPct] = useState(0);
+  const [cgstPct, setCgstPct] = useState(0);
+  const [sgstPct, setSgstPct] = useState(0);
   const [showPoModal, setShowPoModal] = useState(false);
   const [poSearch, setPoSearch] = useState("");
   const [modalSelectedIds, setModalSelectedIds] = useState<string[]>([]);

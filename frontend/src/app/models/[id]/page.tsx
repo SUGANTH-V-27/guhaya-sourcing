@@ -54,12 +54,12 @@ export default function ModelFolderPage({
   const router = useRouter();
 
   const [model, setModel] = useState<ModelEntity>({
-    id: id || "5906482949644",
-    code: id && id.length > 5 ? id : "5906482949644",
-    name: "Style Model",
-    brandId: "soxo",
-    category: "Apparel",
-    daysToHandover: 5,
+    id: id || "",
+    code: id || "",
+    name: "",
+    brandId: "",
+    category: "",
+    daysToHandover: 0,
     image: "",
     status: "Pending",
   });

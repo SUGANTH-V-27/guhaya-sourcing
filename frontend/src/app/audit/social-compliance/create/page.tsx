@@ -267,7 +267,7 @@ export default function CreateSocialCompliancePage() {
   const [activeTab, setActiveTab] = useState<TabId>("info");
 
   // ── Audit Info form ────────────────────────────────────────────────────────
-  const [brand, setBrand] = useState("Sinsay");
+  const [brand, setBrand] = useState("");
   const [factoryName, setFactoryName] = useState("");
   const [factoryAddress, setFactoryAddress] = useState("");
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split("T")[0]);

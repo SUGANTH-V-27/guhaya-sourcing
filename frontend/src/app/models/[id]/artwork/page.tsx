@@ -52,20 +52,7 @@ export default function ModelArtworkPage({
     loadModel();
   }, [modelId]);
 
-  const [rows, setRows] = useState<ArtworkRow[]>([
-    {
-      id: "art-1",
-      description: "Front Chest Graphic - CHAOS Gradient Print",
-      receivedDate: "2026-08-20",
-      fileName: "CHAOS_Tote_Vector_V2.ai",
-      fileSize: "14.2 MB",
-    },
-    {
-      id: "art-2",
-      description: "Care Label & Hangtag Artwork Vector",
-      receivedDate: "2026-08-21",
-    },
-  ]);
+  const [rows, setRows] = useState<ArtworkRow[]>([]);
 
   const [isSaved, setIsSaved] = useState(false);
 

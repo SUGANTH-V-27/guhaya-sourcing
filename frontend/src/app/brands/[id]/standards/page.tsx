@@ -39,7 +39,12 @@ export default function BrandStandardsPage({
     loadBrand();
   }, [brandId]);
 
-  const standards = INITIAL_BRAND_STANDARDS[brandId] || INITIAL_BRAND_STANDARDS["1"];
+  const standards = INITIAL_BRAND_STANDARDS[brandId] || {
+    brandId,
+    fabricTests: [],
+    garmentTests: [],
+    colorFastness: [],
+  };
   const [activeTab, setActiveTab] = useState<"fabric" | "garment" | "colorFastness">("fabric");
 
   function handlePrintStandards() {

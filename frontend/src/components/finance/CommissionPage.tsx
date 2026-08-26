@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ChevronRight,
@@ -12,17 +12,16 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { BrandsApi, type BrandEntity } from "@/lib/api/brands-api";
 import {
-  buildMockCommissionPos,
   calcCommissionInr,
-  COMMISSION_BRANDS,
-  DEFAULT_FACTORY_RATES,
   formatInr,
   formatUsd,
   type CommissionPo,
   type CommissionStatus,
   type FactoryRate,
 } from "@/lib/finance/commission-data";
+import financeService from "../../../services/finance.service";
 
 const selectClass =
   "w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-teal-400/60";
@@ -31,17 +30,33 @@ const inlineInputClass =
   "w-16 border-b border-dashed border-gray-500 bg-transparent text-center text-sm text-white outline-none focus:border-teal-400";
 
 export function CommissionPage() {
-  const [selectedBrandId, setSelectedBrandId] = useState("sinsay");
+  const [brands, setBrands] = useState<BrandEntity[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState("");
   const [statusTab, setStatusTab] = useState<CommissionStatus>("unpaid");
   const [factoryFilter, setFactoryFilter] = useState("all");
   const [styleFilter, setStyleFilter] = useState("all");
   const [seasonFilter, setSeasonFilter] = useState("all");
   const [intakeFilter, setIntakeFilter] = useState("all");
-  const [rows, setRows] = useState<CommissionPo[]>(buildMockCommissionPos);
-  const [factoryRates, setFactoryRates] = useState<FactoryRate[]>(DEFAULT_FACTORY_RATES);
+  const [rows, setRows] = useState<CommissionPo[]>([]);
+  const [factoryRates, setFactoryRates] = useState<FactoryRate[]>([]);
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [rateDraft, setRateDraft] = useState({ factory: "", commissionPct: "" });
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        const brandList = await BrandsApi.getAll();
+        setBrands(brandList);
+        if (brandList.length > 0) {
+          setSelectedBrandId(brandList[0].id);
+        }
+      } catch (err) {
+        console.warn("Failed to load brands:", err);
+      }
+    }
+    init();
+  }, []);
 
   const brandRows = useMemo(
     () => rows.filter((row) => row.brandId === selectedBrandId),
@@ -99,19 +114,15 @@ export function CommissionPage() {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
-  function refreshFromPos() {
-    const refreshed = buildMockCommissionPos();
-    setRows((prev) => {
-      const overrides = new Map(prev.map((r) => [r.id, r]));
-      return refreshed.map((row) => {
-        const existing = overrides.get(row.id);
-        if (!existing) {
-          const defaultRate = factoryRates.find((f) => f.factory === row.factory)?.commissionPct;
-          return defaultRate != null ? { ...row, commissionPct: defaultRate } : row;
-        }
-        return existing;
-      });
-    });
+  async function refreshFromPos() {
+    try {
+      const live = await financeService.getCommissions();
+      if (live && live.length > 0) {
+        setRows(live);
+      }
+    } catch (err) {
+      console.warn("Failed to refresh commission POs:", err);
+    }
   }
 
   function saveFactoryRate() {
@@ -187,11 +198,14 @@ export function CommissionPage() {
         <p className="mt-1 text-sm text-gray-400">Track commissions per PO across brands.</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {COMMISSION_BRANDS.map((brand) => (
+          {brands.map((brand) => (
             <button key={brand.id} type="button" onClick={() => setSelectedBrandId(brand.id)} className={brandPillClass(brand.id)}>
               {brand.name}
             </button>
           ))}
+          {brands.length === 0 && (
+            <p className="text-xs text-gray-500 italic">No brands created yet. Create a brand to track commissions.</p>
+          )}
         </div>
       </div>
 

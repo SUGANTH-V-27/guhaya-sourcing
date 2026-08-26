@@ -85,14 +85,14 @@ export function CostingEditPage({ costingId, isNew }: Props) {
   const router = useRouter();
 
   // ── Top Form Fields ────────────────────────────────────────────────────────
-  const [brand, setBrand] = useState("Sinsay");
+  const [brand, setBrand] = useState("");
   const [costingName, setCostingName] = useState("");
-  const [fabricComposition, setFabricComposition] = useState("100% COTTON");
-  const [fabricType, setFabricType] = useState("Single Jersey");
-  const [gsm, setGsm] = useState("160");
+  const [fabricComposition, setFabricComposition] = useState("");
+  const [fabricType, setFabricType] = useState("");
+  const [gsm, setGsm] = useState("");
   const [noOfGarments, setNoOfGarments] = useState(1);
   const [styleImage, setStyleImage] = useState<string | null>(null);
-  const [usdRate, setUsdRate] = useState<number>(92);
+  const [usdRate, setUsdRate] = useState<number>(0);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // ── Per-Garment Sections ───────────────────────────────────────────────────

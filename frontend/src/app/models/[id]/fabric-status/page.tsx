@@ -57,49 +57,20 @@ export default function ModelFabricStatusPage({
   }, [modelId]);
 
   // ── Header State ───────────────────────────────────────────────────────────
-  const [totalOrderQty] = useState(5760);
-  const [numberOfFabrics, setNumberOfFabrics] = useState(1);
-  const [fabricRows, setFabricRows] = useState<FabricHeaderRow[]>([
-    {
-      id: "f-1",
-      fabricType: "100% Cotton Woven Canvas 280 GSM",
-      quantityKgs: "1,250",
-      noOfLots: "2",
-      avgConsumption: "0.22 kg/pc",
-    },
-  ]);
+  const [totalOrderQty, setTotalOrderQty] = useState(0);
+  const [numberOfFabrics, setNumberOfFabrics] = useState(0);
+  const [fabricRows, setFabricRows] = useState<FabricHeaderRow[]>([]);
 
   // ── Status Entries State ───────────────────────────────────────────────────
-  const [statusEntries, setStatusEntries] = useState<FabricStatusEntry[]>([
-    {
-      id: "stat-1",
-      stageName: "Yarn Sourcing & Spinning",
-      fabricType: "100% Organic Cotton",
-      lotNumber: "Lot #1",
-      status: "Completed",
-      quantity: "1,300 kgs",
-      completedDate: "2026-08-10",
-      remarks: "OEKO-TEX Certified yarn in-house at dyeing mill.",
-    },
-    {
-      id: "stat-2",
-      stageName: "Dyeing & Finishing",
-      fabricType: "Black Shade Lot DL-8821",
-      lotNumber: "Lot #1",
-      status: "Approved",
-      quantity: "1,250 kgs",
-      completedDate: "2026-08-16",
-      remarks: "Shade approved after 2nd lab dip. Shrinkage length -3.2%, width -2.8%.",
-    },
-  ]);
+  const [statusEntries, setStatusEntries] = useState<FabricStatusEntry[]>([]);
 
   // ── Modal State ────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalStageName, setModalStageName] = useState("Weaving / Knitting");
-  const [modalFabricType, setModalFabricType] = useState("100% Cotton Woven Canvas");
-  const [modalLotNumber, setModalLotNumber] = useState("Lot #2");
+  const [modalStageName, setModalStageName] = useState("");
+  const [modalFabricType, setModalFabricType] = useState("");
+  const [modalLotNumber, setModalLotNumber] = useState("");
   const [modalStatus, setModalStatus] = useState<"Pending" | "In Process" | "Completed" | "Approved" | "Delayed">("In Process");
-  const [modalQuantity, setModalQuantity] = useState("650 kgs");
+  const [modalQuantity, setModalQuantity] = useState("");
   const [modalRemarks, setModalRemarks] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 

@@ -88,35 +88,23 @@ export default function FabricInspectionPage({
   const [isSaved, setIsSaved] = useState(false);
 
   // ── Form State for New/Edit Inspection Report ──────────────────────────────
-  const [brand] = useState("SOXO");
-  const [vendorName] = useState("NANDHI FABRICS");
-  const [factoryAddress] = useState("34- KAMARAJAPURAM (EAST), KARUR -639002, (TN) INDIA");
-  const [poNumber] = useState("PI_NF_001");
-  const [department] = useState("Home Textiles");
-  const [fabricSpec, setFabricSpec] = useState("100% Cotton WOVEN - 280 GSM");
-  const [color, setColor] = useState("BLACK");
+  const [brand, setBrand] = useState("");
+  const [vendorName, setVendorName] = useState("");
+  const [factoryAddress, setFactoryAddress] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [fabricSpec, setFabricSpec] = useState("");
+  const [color, setColor] = useState("");
   const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split("T")[0]);
-  const [inspectorName, setInspectorName] = useState("S. Ramanathan (Lead QC)");
+  const [inspectorName, setInspectorName] = useState("");
   const [threshold, setThreshold] = useState(40);
 
-  const [totalRequired] = useState("1,250 kgs");
-  const [offeredKg, setOfferedKg] = useState("350");
-  const [lotNo, setLotNo] = useState("L1");
+  const [totalRequired, setTotalRequired] = useState("");
+  const [offeredKg, setOfferedKg] = useState("");
+  const [lotNo, setLotNo] = useState("");
 
   // ── Rolls State ────────────────────────────────────────────────────────────
-  const [rolls, setRolls] = useState<RollItem[]>([
-    {
-      id: "roll-1",
-      rollNo: "R01",
-      gsm: 280,
-      widthInches: 58,
-      weightKg: 3.5,
-      lengthYards: 30,
-      defects: [],
-      photos: [],
-      isExpanded: true,
-    },
-  ]);
+  const [rolls, setRolls] = useState<RollItem[]>([]);
 
   // ── Inspection Photos State ────────────────────────────────────────────────
   const [photoCols, setPhotoCols] = useState<InspectionPhotoCol[]>([
