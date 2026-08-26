@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type CostingRow = {
   id: string;
   label: string;
@@ -171,12 +173,14 @@ export function saveOrUpdateCosting(costSheet: CostSheet) {
   const existingIdx = list.findIndex((c) => c.id === costSheet.id);
   if (existingIdx >= 0) {
     list[existingIdx] = { ...costSheet, updatedAt: new Date().toISOString() };
+    db.costingSheets.update(costSheet.id, costSheet).catch(() => {});
   } else {
     list.unshift({
       ...costSheet,
       createdAt: costSheet.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    db.costingSheets.insert(costSheet).catch(() => {});
   }
   saveCostings(list);
 }
@@ -184,4 +188,5 @@ export function saveOrUpdateCosting(costSheet: CostSheet) {
 export function deleteCosting(id: string) {
   const list = loadCostings().filter((c) => c.id !== id);
   saveCostings(list);
+  db.costingSheets.delete(id).catch(() => {});
 }

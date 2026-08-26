@@ -244,6 +244,18 @@ export class BackendDbTable<T extends DatabaseRecord> {
     }
   }
 
+  async findMany(where?: Record<string, any>): Promise<T[]> {
+    return await this.select(where);
+  }
+
+  async findOne(id: string): Promise<T | null> {
+    return await this.selectById(id);
+  }
+
+  async create(record: T): Promise<T> {
+    return await this.insert(record);
+  }
+
   async update(id: string, updates: Partial<T>): Promise<T | null> {
     try {
       const clean = sanitizeData(this.modelName, updates);

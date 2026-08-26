@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type InvoiceCommissionRow = {
   id: string;
   poId: string | null;
@@ -76,6 +78,16 @@ export function addInvoice(invoice: InvoiceRecord) {
   const invoices = loadInvoices();
   invoices.unshift(invoice);
   saveInvoices(invoices);
+  db.invoices.insert({
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    partyName: invoice.invoiceTo?.company || invoice.brandName || "Buyer",
+    partyGstin: invoice.invoiceTo?.gstin || null,
+    partyAddress: invoice.invoiceTo?.address || null,
+    invoiceDate: invoice.date ? new Date(invoice.date) : new Date(),
+    currency: "INR",
+    notes: invoice.remarks || null,
+  }).catch(() => {});
 }
 
 export function getInvoiceNumbers(): string[] {
@@ -90,8 +102,10 @@ export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
   const invoices = loadInvoices();
   const next = invoices.map((inv) => (inv.id === id ? normalizeInvoice({ ...inv, ...patch }) : inv));
   saveInvoices(next);
+  db.invoices.update(id, patch).catch(() => {});
 }
 
 export function deleteInvoice(id: string) {
   saveInvoices(loadInvoices().filter((inv) => inv.id !== id));
+  db.invoices.delete(id).catch(() => {});
 }

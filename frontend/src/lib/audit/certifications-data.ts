@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type CertificationRecord = {
   id: string;
   factoryName: string;
@@ -126,6 +128,7 @@ export function addCertification(cert: Omit<CertificationRecord, "id" | "created
   };
   list.unshift(newCert);
   saveCertifications(list);
+  db.certifications.insert(newCert).catch(() => {});
   return newCert;
 }
 
@@ -135,10 +138,12 @@ export function updateCertification(id: string, patch: Partial<CertificationReco
   if (idx >= 0) {
     list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
     saveCertifications(list);
+    db.certifications.update(id, patch).catch(() => {});
   }
 }
 
 export function deleteCertification(id: string) {
   const list = loadCertifications().filter((c) => c.id !== id);
   saveCertifications(list);
+  db.certifications.delete(id).catch(() => {});
 }

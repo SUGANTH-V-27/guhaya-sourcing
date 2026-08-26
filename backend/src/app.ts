@@ -30,11 +30,11 @@ app.get(["/health", "/api/health"], (req, res) => {
 
 // Mount Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/brands", brandRoutes);
-app.use("/api/models", modelRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/audits", auditRoutes);
-app.use("/api/costings", costingRoutes);
+app.use(["/api/brands", "/api/brand"], brandRoutes);
+app.use(["/api/models", "/api/model"], modelRoutes);
+app.use(["/api/orders", "/api/order"], orderRoutes);
+app.use(["/api/audit", "/api/audits"], auditRoutes);
+app.use(["/api/costing", "/api/costings"], costingRoutes);
 app.use("/api/finance", financeRoutes);
 
 // Error handling middleware

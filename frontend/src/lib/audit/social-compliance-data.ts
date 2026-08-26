@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type ComplianceRating = "Green" | "Light-Green" | "Orange" | "Red" | "Black" | "N/A";
 export type FindingSeverity = "Critical" | "Major" | "Minor" | "Observation";
 export type AuditGrade = "A" | "B" | "C" | "D" | "E";
@@ -142,12 +144,14 @@ export function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
+    db.socialComplianceAudits.update(audit.id, audit).catch(() => {});
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    db.socialComplianceAudits.insert(audit).catch(() => {});
   }
   saveSocialAudits(list);
 }
@@ -155,4 +159,5 @@ export function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
 export function deleteSocialAudit(id: string) {
   const list = loadSocialAudits().filter((a) => a.id !== id);
   saveSocialAudits(list);
+  db.socialComplianceAudits.delete(id).catch(() => {});
 }

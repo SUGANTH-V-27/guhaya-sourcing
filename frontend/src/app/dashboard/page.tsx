@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, ClipboardCheck, DollarSign, ShoppingBag, Users } from "lucide-react";
+import { Calculator, ClipboardCheck, DollarSign, ShoppingBag } from "lucide-react";
 import { DashboardSectionCard } from "@/components/cards/DashboardSectionCard";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 
@@ -40,13 +40,6 @@ export default function DashboardPage() {
           description="Cost sheets, pricing & margin analysis"
           icon={Calculator}
           iconClassName="border-amber-400 text-amber-400"
-        />
-        <DashboardSectionCard
-          href="/users"
-          title="Team & Users"
-          description="Manage team accounts, permissions & roles"
-          icon={Users}
-          iconClassName="border-cyan-400 text-cyan-400"
         />
       </div>
     </SourcingShell>

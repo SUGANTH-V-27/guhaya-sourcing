@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type StaffMember = {
   id: string;
   name: string;
@@ -24,6 +26,15 @@ export function loadStaff(): StaffMember[] {
 export function saveStaff(staff: StaffMember[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(staff));
+  // Sync to database
+  staff.forEach((member) => {
+    db.staffMembers.insert({
+      id: member.id,
+      fullName: member.name,
+      designation: member.role,
+      baseSalary: member.fixedSalary,
+    }).catch(() => {});
+  });
 }
 
 export function getMonthlySalaryTotal(): number {

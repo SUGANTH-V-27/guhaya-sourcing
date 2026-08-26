@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type TechnicalModule = {
   id: string;
   name: string;
@@ -157,12 +159,14 @@ export function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
+    db.technicalAudits.update(audit.id, audit).catch(() => {});
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    db.technicalAudits.insert(audit).catch(() => {});
   }
   saveTechnicalAudits(list);
 }
@@ -170,4 +174,5 @@ export function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
 export function deleteTechnicalAudit(id: string) {
   const list = loadTechnicalAudits().filter((a) => a.id !== id);
   saveTechnicalAudits(list);
+  db.technicalAudits.delete(id).catch(() => {});
 }
