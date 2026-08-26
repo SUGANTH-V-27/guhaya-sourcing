@@ -17,15 +17,22 @@ export type GarmentSection = {
 export type CostSheet = {
   id: string;
   brand: string;
+  brandName?: string;
   name: string; // Style name
   styleNo: string;
+  modelCode?: string;
+  modelName?: string;
+  image?: string;
   fabricComposition: string;
   gsm: string;
-  currency: "INR" | "USD" | "EUR" | "GBP";
+  currency: "INR" | "USD" | "EUR" | "GBP" | string;
   exchangeRate: number; // e.g. 87.5 for INR/USD
   targetQuantity?: number;
   garmentCount: number;
   garmentSections: GarmentSection[];
+  totalCost?: number;
+  finalPrice?: number;
+  usdFinalPrice?: number;
   notes?: string;
   createdAt: string;
   updatedAt: string;

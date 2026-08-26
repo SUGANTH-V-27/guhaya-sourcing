@@ -37,14 +37,18 @@ export type TechnicalAudit = {
   capacity?: number;
   productCategories?: string[];
   categories?: string;
-  overallScorePercent: number;
-  grade: string;
-  status: "Approved" | "Conditional" | "Rejected";
+  overallScorePercent?: number;
+  grade?: string;
+  status?: "Approved" | "Conditional" | "Rejected" | string;
   modules: TechnicalModule[];
-  findings: TechnicalFinding[];
+  findings?: TechnicalFinding[];
   summaryConclusion?: string;
-  createdAt: string;
-  updatedAt: string;
+  conclusion?: string;
+  available?: number;
+  missing?: number;
+  total?: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export const DEFAULT_TECHNICAL_MODULES: TechnicalModule[] = [

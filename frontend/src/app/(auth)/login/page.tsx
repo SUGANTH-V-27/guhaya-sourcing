@@ -6,6 +6,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { authService } from "@/../services/auth.service";
+
 const SESSION_KEY = "guhaya_intro_seen";
 
 export default function LoginPage() {
@@ -53,13 +55,22 @@ export default function LoginPage() {
   /* Auth handler */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const res = await authService.login(email.trim(), password);
+      if (res?.user && typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(res.user));
+        localStorage.setItem("token", res.token);
+      }
       router.push("/dashboard");
-    } catch {
-      setError("Invalid credentials. Please try again.");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err?.message || "Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }

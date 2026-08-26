@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 
 interface QuantityRow {
   id: string;
@@ -70,7 +70,20 @@ export default function PurchaseOrderPage({
 }) {
   const { id: modelId } = React.use(params);
   const router = useRouter();
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch (err) {
+        console.warn("Failed to load model in PO page:", err);
+      }
+    }
+    loadModel();
+  }, [modelId]);
 
   // ── Top Level Form State ───────────────────────────────────────────────────
   const [modelNo, setModelNo] = useState(modelId ? (modelId.length > 8 ? modelId : "5906482949644") : "5906482949644");

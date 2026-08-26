@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -25,7 +25,8 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { brands, models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 
 interface CategoryItem {
   key: string;
@@ -52,21 +53,37 @@ export default function ModelFolderPage({
   const { id } = React.use(params);
   const router = useRouter();
 
-  // Find model & brand
-  const model = models.find((m) => m.id === id || m.code === id) || {
+  const [model, setModel] = useState<ModelEntity>({
     id: id || "5906482949644",
     code: id && id.length > 5 ? id : "5906482949644",
-    name: "Tote Bag",
-    brandId: "tera",
-    category: "Home Textiles",
-    daysToHandover: -3,
+    name: "Style Model",
+    brandId: "soxo",
+    category: "Apparel",
+    daysToHandover: 5,
     image: "",
-  };
+    status: "Pending",
+  });
 
-  const brand = brands.find((b) => b.id === model.brandId) || {
-    id: "soxo",
-    name: "SOXO",
-  };
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+      try {
+        const data = await ModelsApi.getById(id);
+        if (data) {
+          setModel(data);
+          if (data.brandId) {
+            const brandData = await BrandsApi.getById(data.brandId);
+            setBrand(brandData);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load model details:", err);
+      }
+    }
+    loadData();
+  }, [id]);
 
   // ── Daily Production Report Files State ────────────────────────────────────
   const [productionFiles, setProductionFiles] = useState<UploadedFile[]>([]);
@@ -140,7 +157,7 @@ export default function ModelFolderPage({
     },
   ];
 
-  const isOverdue = model.daysToHandover <= 0;
+  const isOverdue = (model.daysToHandover ?? 0) <= 0;
   const overdueDays = Math.abs(model.daysToHandover || 3);
 
   function handleCategoryClick(cat: CategoryItem) {

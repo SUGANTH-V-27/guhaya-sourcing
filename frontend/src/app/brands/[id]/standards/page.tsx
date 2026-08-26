@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 import { INITIAL_BRAND_STANDARDS } from "@/lib/brand/brand-subpages-data";
 
 export default function BrandStandardsPage({
@@ -24,7 +24,21 @@ export default function BrandStandardsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
+
+  useEffect(() => {
+    async function loadBrand() {
+      if (!brandId) return;
+      try {
+        const data = await BrandsApi.getById(brandId);
+        if (data) setBrand(data);
+      } catch (err) {
+        console.warn("Failed to load brand in standards page:", err);
+      }
+    }
+    loadBrand();
+  }, [brandId]);
+
   const standards = INITIAL_BRAND_STANDARDS[brandId] || INITIAL_BRAND_STANDARDS["1"];
   const [activeTab, setActiveTab] = useState<"fabric" | "garment" | "colorFastness">("fabric");
 

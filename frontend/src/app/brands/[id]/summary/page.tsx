@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -19,12 +19,17 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands, models } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 import {
   INITIAL_BRAND_BOOKINGS,
   INITIAL_BRAND_CAPACITY,
   INITIAL_CAPR_RECORDS,
   INITIAL_COURIER_SHIPMENTS,
+  type BrandBookingItem,
+  type BrandCapacityAllocation,
+  type CAPRRecord,
+  type CourierShipment,
 } from "@/lib/brand/brand-subpages-data";
 
 export default function BrandSummaryPage({
@@ -33,8 +38,25 @@ export default function BrandSummaryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
-  const brandModels = models.filter((m) => m.brandId === brandId);
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
+  const [brandModels, setBrandModels] = useState<ModelEntity[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        const [brandData, modelsData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          ModelsApi.getAll(),
+        ]);
+        if (brandData) setBrand(brandData);
+        if (modelsData) setBrandModels(modelsData.filter((m) => m.brandId === brandId));
+      } catch (err) {
+        console.warn("Failed to load brand summary data:", err);
+      }
+    }
+    loadData();
+  }, [brandId]);
 
   const totalBookedQty = INITIAL_BRAND_BOOKINGS.reduce((sum: number, b: BrandBookingItem) => sum + b.confirmedQty, 0);
   const totalProjectedQty = INITIAL_BRAND_BOOKINGS.reduce((sum: number, b: BrandBookingItem) => sum + b.projectedQty, 0);

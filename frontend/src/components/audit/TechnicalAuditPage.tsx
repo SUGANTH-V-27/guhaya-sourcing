@@ -110,6 +110,7 @@ export function TechnicalAuditPage() {
       workforce: 350,
       capacity: 15000,
       categories: "",
+      status: "Approved",
       modules: DEFAULT_TECHNICAL_MODULES,
       findings: [],
       conclusion: "",

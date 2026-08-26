@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CheckCircle2,
   ChevronRight,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 import {
   type CourierShipment,
   INITIAL_COURIER_SHIPMENTS,
@@ -28,8 +28,25 @@ export default function BrandCourierPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
   const [shipments, setShipments] = useState<CourierShipment[]>(INITIAL_COURIER_SHIPMENTS);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        const [brandData, courierData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          BrandsApi.getCourierShipments(brandId),
+        ]);
+        if (brandData) setBrand(brandData);
+        if (courierData && courierData.length > 0) setShipments(courierData);
+      } catch (err) {
+        console.warn("Failed to load courier data:", err);
+      }
+    }
+    loadData();
+  }, [brandId]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);

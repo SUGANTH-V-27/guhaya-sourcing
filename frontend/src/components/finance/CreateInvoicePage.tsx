@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi } from "@/lib/api/brands-api";
 import {
   buildMockCommissionPos,
   COMMISSION_BRANDS,
@@ -51,7 +51,10 @@ const sectionClass = "rounded-xl border border-gray-700 bg-gray-900 p-6";
 
 const BRAND_OPTIONS = [
   ...COMMISSION_BRANDS.map((b) => b.name),
-  ...brands.map((b) => b.name),
+  "SOXO",
+  "TERA",
+  "ASTRA",
+  "KORVA",
 ];
 
 function newCommissionRow(partial?: Partial<InvoiceCommissionRow>): InvoiceCommissionRow {

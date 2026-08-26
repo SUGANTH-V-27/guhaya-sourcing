@@ -1105,7 +1105,7 @@ export default function CreateSocialCompliancePage() {
                 </div>
               ) : (
                 <p className="text-center text-xs text-gray-500 py-6">
-                  No findings yet. Click "Add Finding" to add SIR items.
+                  No findings yet. Click &quot;Add Finding&quot; to add SIR items.
                 </p>
               )}
             </div>

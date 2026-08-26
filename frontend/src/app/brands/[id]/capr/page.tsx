@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 import {
   type CAPRRecord,
   INITIAL_CAPR_RECORDS,
@@ -31,8 +31,25 @@ export default function BrandCAPRPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
   const [caprList, setCaprList] = useState<CAPRRecord[]>(INITIAL_CAPR_RECORDS);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        const [brandData, caprData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          BrandsApi.getCaprIssues(brandId),
+        ]);
+        if (brandData) setBrand(brandData);
+        if (caprData && caprData.length > 0) setCaprList(caprData);
+      } catch (err) {
+        console.warn("Failed to load CAPR data:", err);
+      }
+    }
+    loadData();
+  }, [brandId]);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");

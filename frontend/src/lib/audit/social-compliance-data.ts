@@ -38,14 +38,16 @@ export type SectionScore = {
 
 export type CapFinding = {
   id: string;
-  findingNo: string;
-  severity: FindingSeverity;
-  sectionName: string;
-  issueDescription: string;
-  correctiveAction: string;
-  responsiblePerson: string;
-  agreedTimeline: string;
-  status: "Open" | "In Progress" | "Resolved" | "Verified";
+  findingNo?: string;
+  severity: FindingSeverity | string;
+  sectionName?: string;
+  category?: string;
+  description?: string;
+  issueDescription?: string;
+  correctiveAction?: string;
+  responsiblePerson?: string;
+  agreedTimeline?: string;
+  status: "Open" | "In Progress" | "Resolved" | "Verified" | string;
 };
 
 export type SocialComplianceAudit = {
@@ -54,18 +56,22 @@ export type SocialComplianceAudit = {
   brand?: string;
   auditDate: string;
   auditorName: string;
-  auditType: "Initial Audit" | "Periodic Audit" | "Follow-up Audit" | "Unannounced Audit";
+  auditType: "Initial Audit" | "Periodic Audit" | "Follow-up Audit" | "Unannounced Audit" | string;
   factoryAddress?: string;
   address?: string;
   contactPerson?: string;
   contactEmail?: string;
+  contact?: string;
+  email?: string;
   overallScorePercent: number;
-  grade: AuditGrade;
-  status: "Passed" | "Conditional" | "Failed" | "Action Required";
-  sections: SectionScore[];
-  findings: CapFinding[];
+  grade: AuditGrade | string;
+  status?: "Passed" | "Conditional" | "Failed" | "Action Required" | string;
+  sections?: SectionScore[];
+  sectionScores?: Record<string, any> | SectionScore[];
+  findings?: CapFinding[];
   capFindings?: CapFinding[];
   auditorRemarks?: string;
+  remarks?: string;
   createdAt: string;
   updatedAt: string;
 };

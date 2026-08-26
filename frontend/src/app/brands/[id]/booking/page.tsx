@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 import {
   type BrandBookingItem,
   INITIAL_BRAND_BOOKINGS,
@@ -27,8 +27,25 @@ export default function BrandBookingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
   const [bookings, setBookings] = useState<BrandBookingItem[]>(INITIAL_BRAND_BOOKINGS);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        const [brandData, bookingData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          BrandsApi.getBookingTrackers(brandId),
+        ]);
+        if (brandData) setBrand(brandData);
+        if (bookingData && bookingData.length > 0) setBookings(bookingData);
+      } catch (err) {
+        console.warn("Failed to load booking data:", err);
+      }
+    }
+    loadData();
+  }, [brandId]);
   const [searchQuery, setSearchQuery] = useState("");
   const [seasonFilter, setSeasonFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);

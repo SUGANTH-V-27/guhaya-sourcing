@@ -1,100 +1,80 @@
 import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import { env } from "../config/env.js";
-import { db } from "../config/db.js";
+import { authService } from "../services/auth.service.js";
+import { sendSuccess, sendError } from "../utils/helpers.js";
 
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Email and password are required" });
+    if (!email) {
+      return sendError(res, "Email is required", 400);
     }
 
-    // Check profile
-    let profile = (await db.profiles.select({ email }))[0];
-    if (!profile) {
-      // Auto-create or authenticate
-      profile = await db.profiles.insert({
-        email,
-        full_name: email.split("@")[0],
-        role: "Merchandiser",
-      });
-    }
-
-    const token = jwt.sign(
-      { id: profile.id, email: profile.email, role: profile.role },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRE as any }
-    );
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: profile.id,
-        email: profile.email,
-        fullName: profile.full_name,
-        role: profile.role,
-      },
-    });
+    const result = await authService.login(email, password);
+    return sendSuccess(res, result, "Login successful");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message || "Login failed", 500, error);
   }
 };
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, fullName, role } = req.body;
+    const { email, fullName, role, phone } = req.body;
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required" });
+      return sendError(res, "Email is required", 400);
     }
 
-    const existing = (await db.profiles.select({ email }))[0];
-    if (existing) {
-      return res.status(400).json({ success: false, message: "User already exists" });
-    }
-
-    const newProfile = await db.profiles.insert({
-      email,
-      full_name: fullName || email.split("@")[0],
-      role: role || "Merchandiser",
-    });
-
-    const token = jwt.sign(
-      { id: newProfile.id, email: newProfile.email, role: newProfile.role },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRE as any }
-    );
-
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: newProfile.id,
-        email: newProfile.email,
-        fullName: newProfile.full_name,
-        role: newProfile.role,
-      },
-    });
+    const result = await authService.register({ email, fullName, role, phone });
+    return sendSuccess(res, result, "Registration successful", 201);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message || "Registration failed", 400, error);
   }
 };
 
 export const getMe = async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+    if (!req.user?.id) {
+      return sendError(res, "Unauthorized", 401);
     }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, env.JWT_SECRET) as any;
-    const profile = await db.profiles.selectById(decoded.id);
+
+    const profile = await authService.getProfileById(req.user.id);
     if (!profile) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return sendError(res, "User not found", 404);
     }
-    res.json({ success: true, user: profile });
+
+    return sendSuccess(res, profile);
   } catch (error: any) {
-    res.status(401).json({ success: false, message: "Invalid token" });
+    return sendError(res, error.message || "Failed to fetch user", 500, error);
+  }
+};
+
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const users = await authService.getAllUsers();
+    return sendSuccess(res, users);
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to fetch users", 500, error);
+  }
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await authService.updateProfile(id, req.body);
+    if (!updated) {
+      return sendError(res, "User not found", 404);
+    }
+    return sendSuccess(res, updated, "User updated successfully");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update user", 500, error);
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = await authService.deleteUser(id);
+    return sendSuccess(res, { deleted }, "User deleted successfully");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to delete user", 500, error);
   }
 };

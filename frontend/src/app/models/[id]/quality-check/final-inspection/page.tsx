@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -29,7 +29,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 
 type ResultStatus = "PASSED" | "FAILED" | "INCONCLUSIVE";
 
@@ -67,7 +67,18 @@ export default function FinalInspectionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: modelId } = React.use(params);
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch {}
+    }
+    loadModel();
+  }, [modelId]);
 
   // ── Mode: "list" | "create" ────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
