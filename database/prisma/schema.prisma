@@ -13,6 +13,7 @@ model Profile {
   id        String   @id @default(uuid())
   userId    String?  @unique
   email     String   @unique
+  passwordHash String?
   fullName  String?
   role      String   @default("Merchandiser")
   phone     String?

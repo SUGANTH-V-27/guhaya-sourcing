@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface MeasurementRow {
   pom: string;
@@ -46,6 +48,24 @@ export default function ModelMeasurementsPage({
   const [specRows, setSpecRows] = useState<MeasurementRow[]>([]);
 
   const [isSaved, setIsSaved] = useState(false);
+
+  React.useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "measurements")
+      .then((records) => {
+        const latest = records[0] as any;
+        if (!latest?.remarks) return;
+        try {
+          const saved = JSON.parse(latest.remarks);
+          if (saved.garmentCount) setGarmentCount(saved.garmentCount);
+          if (saved.garmentLabels) setGarmentLabels(saved.garmentLabels);
+          if (saved.sizes) setSizes(saved.sizes);
+          if (saved.chartImages) setChartImages(saved.chartImages);
+          if (saved.wayToMeasureImages) setWayToMeasureImages(saved.wayToMeasureImages);
+          if (saved.specRows) setSpecRows(saved.specRows);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleGarmentCountChange(count: number) {
@@ -78,20 +98,28 @@ export default function ModelMeasurementsPage({
     setSizes(sizes.filter((s) => s !== sizeToRemove));
   }
 
-  function handleChartUpload(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleChartUpload(index: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setChartImages((prev) => ({ ...prev, [index]: { name: file.name, url } }));
+    try {
+      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      setChartImages((prev) => ({ ...prev, [index]: { name: file.name, url } }));
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload measurement chart.");
+    }
   }
 
-  function handleWayUpload(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleWayUpload(index: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setWayToMeasureImages((prev) =>
-      prev.map((item, i) => (i === index ? { name: file.name, url } : item))
-    );
+    try {
+      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      setWayToMeasureImages((prev) =>
+        prev.map((item, i) => (i === index ? { name: file.name, url } : item))
+      );
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload measurement image.");
+    }
   }
 
   function handleAddWayImage() {
@@ -120,7 +148,20 @@ export default function ModelMeasurementsPage({
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `measurements-${modelId}`,
+        modelId,
+        inspectionType: "measurements",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ garmentCount, garmentLabels, sizes, chartImages, wayToMeasureImages, specRows }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save measurement specifications.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

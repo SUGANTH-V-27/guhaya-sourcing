@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface TrimmingBOMRow {
   id: string;
@@ -57,6 +58,7 @@ export default function ModelTrimmingPage({
 
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleCreateTrim() {
@@ -84,14 +86,20 @@ export default function ModelTrimmingPage({
     );
   }
 
-  function handleFileUpload(
+  async function handleFileUpload(
     id: string,
     field: "referenceLayout" | "actualLayout",
     e: React.ChangeEvent<HTMLInputElement>
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    let url: string;
+    try {
+      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload layout proof.");
+      return;
+    }
     if (field === "referenceLayout") {
       handleUpdateTrim(id, "referenceLayoutName", file.name);
       handleUpdateTrim(id, "referenceLayoutUrl", url);
@@ -101,9 +109,28 @@ export default function ModelTrimmingPage({
     }
   }
 
-  function handleSave() {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  async function handleSave() {
+    setSaveError(null);
+    try {
+      await Promise.all(
+        trims.map((trim) =>
+          ModelsApi.saveTrimmingBom({
+            id: trim.id,
+            modelId,
+            itemType: trim.description || trim.trimmingId,
+            specification: trim.version,
+            color: trim.optionColour,
+            requiredQty: Number(trim.quantity) || 0,
+            approvalStatus: trim.approvalStatus,
+            proofImageUrl: trim.actualLayoutUrl || trim.referenceLayoutUrl,
+          })
+        )
+      );
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error: any) {
+      setSaveError(error?.message || "Failed to save trimming BOM.");
+    }
   }
 
   return (
@@ -117,6 +144,11 @@ export default function ModelTrimmingPage({
             <button onClick={() => setIsSaved(false)} className="text-teal-400 hover:text-white">
               ✕
             </button>
+          </div>
+        )}
+        {saveError && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">
+            {saveError}
           </div>
         )}
 

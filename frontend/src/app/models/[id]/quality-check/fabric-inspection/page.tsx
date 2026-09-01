@@ -25,6 +25,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface DefectItem {
   id: string;
@@ -86,6 +88,19 @@ export default function FabricInspectionPage({
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [reports, setReports] = useState<FabricInspectionReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
+
+  React.useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "fabric-inspection")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks) as FabricInspectionReport;
+          setReports([data]);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   // ── Form State for New/Edit Inspection Report ──────────────────────────────
   const [brand, setBrand] = useState("");
@@ -206,10 +221,16 @@ export default function FabricInspectionPage({
     );
   }
 
-  function handleRollPhotoUpload(rollId: string, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleRollPhotoUpload(rollId: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    let url: string;
+    try {
+      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload roll photo.");
+      return;
+    }
     setRolls((prev) =>
       prev.map((r) =>
         r.id === rollId ? { ...r, photos: [...r.photos, url] } : r
@@ -225,10 +246,16 @@ export default function FabricInspectionPage({
     ]);
   }
 
-  function handlePhotoColUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoColUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    let url: string;
+    try {
+      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload fabric inspection photo.");
+      return;
+    }
     setPhotoCols((prev) =>
       prev.map((c) => (c.id === id ? { ...c, imageUrl: url, imageName: file.name } : c))
     );
@@ -264,7 +291,7 @@ export default function FabricInspectionPage({
     return rolls.reduce((sum, r) => sum + (r.weightKg || 0), 0);
   }, [rolls]);
 
-  function handleSaveReport() {
+  async function handleSaveReport() {
     const newReport: FabricInspectionReport = {
       id: `rep-${Date.now()}`,
       brand,
@@ -288,15 +315,36 @@ export default function FabricInspectionPage({
       createdAt: new Date().toISOString().split("T")[0],
     };
 
+    try {
+      await ModelsApi.saveQcInspection({
+        id: newReport.id,
+        modelId,
+        inspectionType: "fabric-inspection",
+        factoryName: vendorName,
+        inspectorName,
+        inspectionDate,
+        result: overallResult,
+        remarks: JSON.stringify(newReport),
+        photos: photoCols,
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save fabric inspection.");
+      return;
+    }
     setReports([newReport, ...reports]);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
     setViewMode("list");
   }
 
-  function handleDeleteReport(id: string) {
+  async function handleDeleteReport(id: string) {
     if (confirm("Delete this fabric inspection report?")) {
-      setReports(reports.filter((r) => r.id !== id));
+      try {
+        await ModelsApi.deleteQcInspection(modelId, id);
+        setReports((current) => current.filter((r) => r.id !== id));
+      } catch (error: any) {
+        alert(error?.message || "Failed to delete fabric inspection report.");
+      }
     }
   }
 

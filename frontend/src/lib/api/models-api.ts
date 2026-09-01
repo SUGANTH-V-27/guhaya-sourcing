@@ -1,4 +1,5 @@
 import { db } from "../db/db-client";
+import { modelService } from "../../../services/model.service";
 
 export interface ModelEntity {
   id: string;
@@ -54,42 +55,41 @@ export const ModelsApi = {
 
   // T&A
   async getTnaPlans(modelId: string) {
-    return await db.tnaPlans.query((tna) => tna.modelId === modelId);
+    return await modelService.getSubpageData(modelId, "tna");
   },
 
   async saveTnaPlan(tna: any) {
-    if (tna.id) {
-      return await db.tnaPlans.update(tna.id, tna);
-    }
-    return await db.tnaPlans.insert(tna);
+    return await modelService.saveSubpageData(tna.modelId, "tna", tna);
   },
 
   // Trimming BOM
   async getTrimmingBoms(modelId: string) {
-    return await db.trimmingBoms.query((bom) => bom.modelId === modelId);
+    return await modelService.getSubpageData(modelId, "trimming");
   },
 
   async saveTrimmingBom(bom: any) {
-    if (bom.id) {
-      return await db.trimmingBoms.update(bom.id, bom);
-    }
-    return await db.trimmingBoms.insert(bom);
+    return await modelService.saveSubpageData(bom.modelId, "trimming", bom);
   },
 
   // Quality Check
   async getQcInspections(modelId: string, inspectionType?: string) {
-    return await db.qcInspections.query((qc) => {
-      if (inspectionType) {
-        return qc.modelId === modelId && qc.inspectionType === inspectionType;
-      }
-      return qc.modelId === modelId;
-    });
+    const data = await modelService.getSubpageData(modelId, "quality-check");
+    return inspectionType ? data.filter((qc: any) => qc.inspectionType === inspectionType) : data;
   },
 
   async saveQcInspection(qc: any) {
-    if (qc.id) {
-      return await db.qcInspections.update(qc.id, qc);
-    }
-    return await db.qcInspections.insert(qc);
+    return await modelService.saveSubpageData(qc.modelId, "quality-check", qc);
+  },
+
+  async deleteQcInspection(modelId: string, recordId: string) {
+    return await modelService.deleteSubpageData(modelId, "quality-check", recordId);
+  },
+
+  async getPatternFiles(modelId: string) {
+    return await modelService.getSubpageData(modelId, "pattern");
+  },
+
+  async savePatternFile(file: any) {
+    return await modelService.saveSubpageData(file.modelId, "pattern", file);
   },
 };

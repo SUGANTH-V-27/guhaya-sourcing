@@ -102,6 +102,9 @@ export const financeService = {
   async createAdvance(data: any) {
     return await api.post<any>("/finance/advances", data);
   },
+  async updateAdvance(id: string, data: any) {
+    return await api.put<any>(`/finance/advances/${id}`, data);
+  },
   async deleteAdvance(id: string) {
     return await api.delete(`/finance/advances/${id}`);
   },

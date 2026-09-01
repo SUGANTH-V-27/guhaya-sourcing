@@ -1,14 +1,76 @@
 "use client";
 
 import Link from "next/link";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight, FileText, Upload } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { INITIAL_PATTERN_FILES } from "@/lib/model/model-subpages-data";
+import { ModelsApi } from "@/lib/api/models-api";
+import type { PatternFile } from "@/lib/model/model-subpages-data";
+import { uploadModelFile } from "@/lib/storage";
 
 export default function PatternPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: modelId } = React.use(params);
-  const patterns = INITIAL_PATTERN_FILES;
+  const [patterns, setPatterns] = useState<PatternFile[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    ModelsApi.getPatternFiles(modelId)
+      .then((records: any[]) => setPatterns(records.map((record) => {
+        try {
+          return JSON.parse(record.remarks) as PatternFile;
+        } catch {
+          return {
+            id: record.id,
+            modelId,
+            fileName: record.reportPdfUrl || "Pattern file",
+            fileType: "Base Pattern",
+            version: "v1",
+            uploadedBy: record.inspectorName || "User",
+            uploadDate: record.inspectionDate || "",
+            markerEfficiency: null,
+            status: "Draft",
+            remarks: "",
+          };
+        }
+      })))
+      .catch((requestError: any) => setError(requestError?.message || "Failed to load pattern files."));
+  }, [modelId]);
+
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const pattern: PatternFile = {
+      id: `pattern-${Date.now()}`,
+      modelId,
+      fileName: file.name,
+      fileType: "Base Pattern",
+      version: "v1",
+      uploadedBy: "Current User",
+      uploadDate: new Date().toISOString(),
+      markerEfficiency: null,
+      status: "Draft",
+      remarks: `Uploaded file: ${file.name}`,
+    };
+    try {
+      const fileUrl = await uploadModelFile(modelId, file);
+      await ModelsApi.savePatternFile({
+        id: pattern.id,
+        modelId,
+        inspectionDate: pattern.uploadDate,
+        result: pattern.status,
+        inspectorName: pattern.uploadedBy,
+        reportPdfUrl: fileUrl || pattern.fileName,
+        remarks: JSON.stringify(pattern),
+      });
+      setPatterns((current) => [pattern, ...current]);
+      setError(null);
+    } catch (requestError: any) {
+      setError(requestError?.message || "Failed to upload pattern file.");
+    } finally {
+      event.target.value = "";
+    }
+  }
 
   return (
     <SourcingShell
@@ -30,10 +92,13 @@ export default function PatternPage({ params }: { params: Promise<{ id: string }
               Base patterns, graded nests, marker layouts &amp; pattern amendments
             </p>
           </div>
-          <button className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-400 transition">
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-400 transition">
             <Upload size={16} /> Upload Pattern File
           </button>
+          <input ref={fileInputRef} type="file" onChange={handleUpload} className="hidden" />
         </div>
+
+        {error && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
         <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/90 shadow-xl">
           <div className="overflow-x-auto">

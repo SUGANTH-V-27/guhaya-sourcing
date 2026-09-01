@@ -24,6 +24,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface MeasurementRow {
   id: string;
@@ -102,6 +103,33 @@ export default function PreProductionMeetingPage({
   const [stylePhoto, setStylePhoto] = useState<string | null>(null);
   const [generalPhoto, setGeneralPhoto] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+
+  React.useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "pre-production")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (data.brand !== undefined) setBrand(data.brand);
+          if (data.modelNo !== undefined) setModelNo(data.modelNo);
+          if (data.poNumber !== undefined) setPoNumber(data.poNumber);
+          if (data.department !== undefined) setDepartment(data.department);
+          if (data.productDesc !== undefined) setProductDesc(data.productDesc);
+          if (data.approvedSample !== undefined) setApprovedSample(data.approvedSample);
+          if (data.merchandiser !== undefined) setMerchandiser(data.merchandiser);
+          if (data.factoryAddress !== undefined) setFactoryAddress(data.factoryAddress);
+          if (data.fabric !== undefined) setFabric(data.fabric);
+          if (data.composition !== undefined) setComposition(data.composition);
+          if (data.gsm !== undefined) setGsm(data.gsm);
+          if (data.checklist) setChecklist(data.checklist);
+          if (data.measurementSections) setMeasurementSections(data.measurementSections);
+          if (data.trimmings) setTrimmings(data.trimmings);
+          if (data.minutesSections) setMinutesSections(data.minutesSections);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleChecklistToggle(key: string, val: boolean) {
@@ -228,7 +256,39 @@ export default function PreProductionMeetingPage({
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `pre-production-${Date.now()}`,
+        modelId,
+        inspectionType: "pre-production",
+        factoryName,
+        inspectorName: qualityController,
+        inspectionDate: ppDate,
+        result: ppMeetingResult,
+        remarks: JSON.stringify({
+          brand,
+          modelNo,
+          poNumber,
+          department,
+          productDesc,
+          approvedSample,
+          merchandiser,
+          factoryAddress,
+          fabric,
+          composition,
+          gsm,
+          checklist,
+          measurementSections,
+          trimmings,
+          minutesSections,
+        }),
+        photos: [stylePhoto, generalPhoto].filter(Boolean),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save pre-production report.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

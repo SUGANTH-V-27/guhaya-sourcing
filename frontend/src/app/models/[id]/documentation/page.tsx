@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface TechPackRow {
   id: string;
@@ -23,6 +24,7 @@ interface TechPackRow {
   receivedDate: string;
   remarks: string;
   fileName?: string;
+  fileUrl?: string;
 }
 
 interface ModelCommentRow {
@@ -32,6 +34,7 @@ interface ModelCommentRow {
   sentDate: string;
   commentsDate: string;
   commentsFileName?: string;
+  commentsFileUrl?: string;
   designerStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
   graphicStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
   technologistStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
@@ -74,6 +77,20 @@ export default function ModelDocumentationPage({
   const [overallStatus, setOverallStatus] = useState<OverallStatus>("PENDING");
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "documentation")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (Array.isArray(data.techPacks)) setTechPacks(data.techPacks);
+          if (Array.isArray(data.comments)) setComments(data.comments);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleAddTechPack() {
     const newTp: TechPackRow = {
@@ -94,6 +111,21 @@ export default function ModelDocumentationPage({
     setTechPacks((prev) =>
       prev.map((tp) => (tp.id === id ? { ...tp, [field]: value } : tp))
     );
+  }
+
+  async function handleTechPackFileUpload(id: string, event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const fileUrl = await uploadModelFile(modelId, file);
+      setTechPacks((prev) => prev.map((pack) => pack.id === id
+        ? { ...pack, fileName: file.name, fileUrl: fileUrl || undefined }
+        : pack));
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload tech pack.");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   function handleAddComment() {
@@ -122,7 +154,35 @@ export default function ModelDocumentationPage({
     );
   }
 
-  function handleSave() {
+  async function handleCommentsFileUpload(id: string, event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const fileUrl = await uploadModelFile(modelId, file);
+      setComments((prev) => prev.map((comment) => comment.id === id
+        ? { ...comment, commentsFileName: file.name, commentsFileUrl: fileUrl || undefined }
+        : comment));
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload comments file.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `documentation-${modelId}`,
+        modelId,
+        inspectionType: "documentation",
+        inspectionDate: new Date().toISOString(),
+        result: overallStatus,
+        remarks: JSON.stringify({ techPacks, comments }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save documentation.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }
@@ -218,9 +278,7 @@ export default function ModelDocumentationPage({
                       type="file"
                       className="hidden"
                       onChange={(e) => {
-                        if (e.target.files?.[0]) {
-                          handleUpdateTechPack(tp.id, "fileName", e.target.files[0].name);
-                        }
+                        void handleTechPackFileUpload(tp.id, e);
                       }}
                     />
                   </label>
@@ -358,9 +416,7 @@ export default function ModelDocumentationPage({
                         type="file"
                         className="hidden"
                         onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            handleUpdateComment(com.id, "commentsFileName", e.target.files[0].name);
-                          }
+                          void handleCommentsFileUpload(com.id, e);
                         }}
                       />
                     </label>

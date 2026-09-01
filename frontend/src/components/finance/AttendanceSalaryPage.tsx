@@ -17,7 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { DEFAULT_STAFF, loadStaff, saveStaff, deleteStaff, loadStaffAsync } from "@/lib/finance/staff-storage";
+import { loadStaffAsync, deleteStaff } from "@/lib/finance/staff-storage";
+import financeService from "@/../services/finance.service";
 
 type AttendanceCode = "P" | "A" | "U" | "H" | "N";
 type SalaryTab = "attendance" | "staff" | "advance";
@@ -137,24 +138,114 @@ export function AttendanceSalaryPage() {
         });
         setAttendance(baseAtt);
         setSalaryEntries(baseSal);
+        Promise.all([
+          financeService.getAttendance(2026, 6),
+          financeService.getSalaries("2026-06"),
+          financeService.getAdvances(),
+        ]).then(([attendanceRecords, salaryRecords, advanceRecords]) => {
+          const loadedAdvances: AdvancePayment[] = advanceRecords.map((record: any) => ({
+            id: record.id,
+            employeeId: record.staffId || record.employeeId,
+            totalAmount: Number(record.amount || record.totalAmount) || 0,
+            monthlyDeduction: Number(record.monthlyDeduction) || 0,
+            balanceRemaining: Number(record.balanceAmount || record.balanceRemaining) || 0,
+            date: record.advanceDate || record.disbursedDate || "",
+            description: record.reason || record.purpose || "",
+            deductHistory: [],
+          }));
+          setAdvances(loadedAdvances);
+          setEmployees((current) => current.map((employee) => ({
+            ...employee,
+            advance: loadedAdvances
+              .filter((advance) => advance.employeeId === employee.id)
+              .reduce((sum, advance) => sum + advance.balanceRemaining, 0),
+          })));
+          setSalaryEntries((current) => {
+            const next = { ...current };
+            salaryRecords.forEach((record: any) => {
+              if (next[record.staffId]) {
+                next[record.staffId] = {
+                  km: 0,
+                  salaryDate: record.paymentDate ? String(record.paymentDate).slice(0, 10) : "",
+                };
+              }
+            });
+            return next;
+          });
+          setAttendance((current) => {
+            const next = { ...current };
+            attendanceRecords.forEach((record: any) => {
+              const date = new Date(record.attendanceDate);
+              const employee = next[record.staffId];
+              if (!employee || Number.isNaN(date.getTime())) return;
+              const statusMap: Record<string, AttendanceCode> = {
+                P: "P",
+                Present: "P",
+                A: "A",
+                Absent: "A",
+                U: "U",
+                "Unpaid Leave": "U",
+                H: "H",
+                "Half Day": "H",
+                N: "N",
+                "Non-Working / Public Holiday": "N",
+              };
+              employee[date.getUTCDate()] = statusMap[record.status] || "P";
+            });
+            return next;
+          });
+        }).catch(() => {});
       }
     }
     initStaff();
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
-    saveStaff(
-      employees.map(({ id, name, role, fixedSalary, vehicleMileage, fuelAllowance }) => ({
-        id,
-        name,
-        role,
-        fixedSalary,
-        vehicleMileage,
-        fuelAllowance,
-      })),
-    );
-  }, [employees, mounted]);
+    if (!mounted || employees.length === 0) return;
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    setAttendance(() => {
+      const next: Record<string, Record<number, AttendanceCode>> = {};
+      employees.forEach((employee) => {
+        next[employee.id] = buildDefaultAttendance(year, month);
+      });
+      return next;
+    });
+    setSalaryEntries(() => {
+      const next: Record<string, SalaryEntry> = {};
+      employees.forEach((employee) => {
+        next[employee.id] = { km: 0, salaryDate: "" };
+      });
+      return next;
+    });
+    Promise.all([
+      financeService.getAttendance(year, month),
+      financeService.getSalaries(monthKey),
+    ]).then(([attendanceRecords, salaryRecords]) => {
+      setAttendance((current) => {
+        const next = { ...current };
+        attendanceRecords.forEach((record: any) => {
+          const date = new Date(record.attendanceDate);
+          const employee = next[record.staffId];
+          if (!employee || Number.isNaN(date.getTime())) return;
+          const statusMap: Record<string, AttendanceCode> = {
+            P: "P", Present: "P", A: "A", Absent: "A", U: "U", "Unpaid Leave": "U",
+            H: "H", "Half Day": "H", N: "N", "Non-Working / Public Holiday": "N",
+          };
+          employee[date.getUTCDate()] = statusMap[record.status] || "P";
+        });
+        return next;
+      });
+      setSalaryEntries((current) => {
+        const next = { ...current };
+        salaryRecords.forEach((record: any) => {
+          if (next[record.staffId]) {
+            next[record.staffId].salaryDate = record.paymentDate ? String(record.paymentDate).slice(0, 10) : "";
+          }
+        });
+        return next;
+      });
+    }).catch(() => {});
+  }, [year, month, mounted, employees]);
   const [advances, setAdvances] = useState<AdvancePayment[]>([]);
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -203,11 +294,21 @@ export function AttendanceSalaryPage() {
     resetAttendanceForPeriod(nextYear, nextMonth);
   }
 
-  function setDayCode(employeeId: string, day: number, code: AttendanceCode) {
+  async function setDayCode(employeeId: string, day: number, code: AttendanceCode) {
     setAttendance((prev) => ({
       ...prev,
       [employeeId]: { ...prev[employeeId], [day]: code },
     }));
+    try {
+      await financeService.saveAttendance({
+        id: `att-${employeeId}-${year}-${month}-${day}`,
+        staffId: employeeId,
+        attendanceDate: new Date(Date.UTC(year, month - 1, day)).toISOString(),
+        status: code,
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save attendance.");
+    }
   }
 
   function updateSalaryEntry(employeeId: string, patch: Partial<SalaryEntry>) {
@@ -256,6 +357,28 @@ export function AttendanceSalaryPage() {
       };
     });
   }, [attendance, employees, fuelRate, salaryEntries, totalDays]);
+
+  async function persistSalarySlip(employeeId: string) {
+    const row = salaryRows.find((item) => item.emp.id === employeeId);
+    if (!row) return;
+    try {
+      await financeService.createSalary({
+        id: `slip-${employeeId}-${year}-${month}`,
+        staffId: employeeId,
+        salaryMonth: `${year}-${String(month).padStart(2, "0")}`,
+        workingDays: totalDays,
+        presentDays: row.attended,
+        basicPay: row.emp.fixedSalary,
+        advanceRecovery: row.emp.advance,
+        grossSalary: row.total,
+        netSalary: row.transferred,
+        paymentDate: row.entry.salaryDate || undefined,
+        paymentStatus: row.entry.salaryDate ? "Paid" : "Pending",
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save salary slip.");
+    }
+  }
 
   const totals = useMemo(
     () =>
@@ -315,15 +438,13 @@ export function AttendanceSalaryPage() {
     setShowAdvanceModal(true);
   }
 
-  function recordAdvance() {
+  async function recordAdvance() {
     if (!advanceDraft.employeeId || !advanceDraft.totalAmount || !advanceDraft.monthlyDeduction) return;
     const totalAmount = Number(advanceDraft.totalAmount) || 0;
     const monthlyDeduction = Number(advanceDraft.monthlyDeduction) || 0;
     if (totalAmount <= 0 || monthlyDeduction <= 0) return;
 
-    const nextAdvances = [
-      ...advances,
-      {
+    const advance = {
         id: `adv-${Date.now()}`,
         employeeId: advanceDraft.employeeId,
         totalAmount,
@@ -332,32 +453,61 @@ export function AttendanceSalaryPage() {
         date: advanceDraft.date,
         description: advanceDraft.description.trim(),
         deductHistory: [],
-      },
-    ];
+    };
+    try {
+      await financeService.createAdvance({
+        id: advance.id,
+        staffId: advance.employeeId,
+        amount: advance.totalAmount,
+        monthlyDeduction: advance.monthlyDeduction,
+        advanceDate: advance.date,
+        reason: advance.description,
+        balanceAmount: advance.balanceRemaining,
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save advance payment.");
+      return;
+    }
+    const nextAdvances = [...advances, advance];
     setAdvances(nextAdvances);
     syncEmployeeAdvances(nextAdvances);
     setShowAdvanceModal(false);
   }
 
-  function deductAdvance(id: string) {
-    const nextAdvances = advances.map((item) => {
-      if (item.id !== id || item.balanceRemaining <= 0) return item;
-      const amount = Math.min(item.monthlyDeduction, item.balanceRemaining);
-      return {
-        ...item,
-        balanceRemaining: item.balanceRemaining - amount,
-        deductHistory: [
-          ...item.deductHistory,
-          { id: `ded-${Date.now()}`, date: new Date().toISOString().slice(0, 10), amount },
-        ],
-      };
-    });
-    setAdvances(nextAdvances);
-    syncEmployeeAdvances(nextAdvances);
+  async function deductAdvance(id: string) {
+    const advance = advances.find((item) => item.id === id);
+    if (!advance || advance.balanceRemaining <= 0) return;
+    const amount = Math.min(advance.monthlyDeduction, advance.balanceRemaining);
+    try {
+      const updated = await financeService.updateAdvance(id, {
+        amount: advance.totalAmount,
+        repaidAmount: advance.totalAmount - advance.balanceRemaining + amount,
+      });
+      const nextAdvances = advances.map((item) => item.id === id
+        ? {
+            ...item,
+            balanceRemaining: Number(updated.balanceAmount),
+            deductHistory: [
+              ...item.deductHistory,
+              { id: `ded-${Date.now()}`, date: new Date().toISOString().slice(0, 10), amount },
+            ],
+          }
+        : item);
+      setAdvances(nextAdvances);
+      syncEmployeeAdvances(nextAdvances);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save advance deduction.");
+    }
   }
 
-  function deleteAdvance(id: string) {
+  async function deleteAdvance(id: string) {
     if (!window.confirm("Delete this advance record?")) return;
+    try {
+      await financeService.deleteAdvance(id);
+    } catch (error: any) {
+      alert(error?.message || "Failed to delete advance payment.");
+      return;
+    }
     const nextAdvances = advances.filter((a) => a.id !== id);
     setAdvances(nextAdvances);
     syncEmployeeAdvances(nextAdvances);
@@ -380,7 +530,7 @@ export function AttendanceSalaryPage() {
     setShowStaffModal(true);
   }
 
-  function saveStaffMember() {
+  async function saveStaffMember() {
     if (!staffDraft.name.trim()) return;
     const payload = {
       name: staffDraft.name.trim(),
@@ -391,11 +541,23 @@ export function AttendanceSalaryPage() {
     };
 
     if (editingStaffId) {
+      try {
+        await financeService.updateStaff(editingStaffId, payload);
+      } catch (error: any) {
+        alert(error?.message || "Failed to update staff member.");
+        return;
+      }
       setEmployees((prev) =>
         prev.map((emp) => (emp.id === editingStaffId ? { ...emp, ...payload } : emp)),
       );
     } else {
       const id = `e${Date.now()}`;
+      try {
+        await financeService.createStaff({ id, ...payload });
+      } catch (error: any) {
+        alert(error?.message || "Failed to create staff member.");
+        return;
+      }
       setEmployees((prev) => [...prev, { id, advance: 0, ...payload }]);
       setAttendance((prev) => ({ ...prev, [id]: buildDefaultAttendance(year, month) }));
       setSalaryEntries((prev) => ({ ...prev, [id]: { km: 0, salaryDate: "" } }));
@@ -602,6 +764,7 @@ export function AttendanceSalaryPage() {
                             value={row.entry.km}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => updateSalaryEntry(row.emp.id, { km: Number(e.target.value) || 0 })}
+                            onBlur={() => persistSalarySlip(row.emp.id)}
                             className={inputClass}
                           />
                         ) : (
@@ -616,6 +779,7 @@ export function AttendanceSalaryPage() {
                           value={row.entry.salaryDate}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => updateSalaryEntry(row.emp.id, { salaryDate: e.target.value })}
+                          onBlur={() => persistSalarySlip(row.emp.id)}
                           className={inputClass}
                         />
                       </td>

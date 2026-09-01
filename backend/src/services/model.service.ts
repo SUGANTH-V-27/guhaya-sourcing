@@ -47,25 +47,25 @@ export class ModelService {
       case "purchase-order":
         return await db.purchaseOrders.select({ model_id: modelId });
       case "fabric-status":
-        return await db.fabricStatus.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId, inspectionType: "fabric-status" });
       case "measurement":
       case "measurements":
-        return await db.measurementSpecs.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId, inspectionType: "measurements" });
       case "pattern-files":
       case "pattern":
-        return await db.patternFiles.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId, inspectionType: "pattern" });
       case "trimming":
-        return await db.trimmingItems.select({ model_id: modelId });
+        return await db.trimmingBoms.select({ modelId });
       case "tna":
-        return await db.tnaActivities.select({ model_id: modelId });
+        return await db.tnaPlans.select({ modelId });
       case "daily-production-report":
         return await db.dailyProductionReports.select({ model_id: modelId });
       case "artwork":
-        return await db.artworkFiles.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId, inspectionType: "artwork" });
       case "documentation":
-        return await db.documentationFiles.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId, inspectionType: "documentation" });
       case "quality-check":
-        return await db.qualityCheckReports.select({ model_id: modelId });
+        return await db.qcInspections.select({ modelId });
       default:
         return [];
     }
@@ -77,25 +77,38 @@ export class ModelService {
       case "purchase-order":
         return await db.purchaseOrders.insert(record);
       case "fabric-status":
-        return await db.fabricStatus.insert(record);
+        return await db.qcInspections.insert({ ...data, modelId, inspectionType: "fabric-status" });
       case "measurement":
       case "measurements":
         return await db.measurementSpecs.insert(record);
       case "pattern-files":
       case "pattern":
-        return await db.patternFiles.insert(record);
+        return await db.qcInspections.insert({ ...data, modelId, inspectionType: "pattern" });
       case "trimming":
-        return await db.trimmingItems.insert(record);
+        return await db.trimmingBoms.insert({ ...data, modelId });
       case "tna":
-        return await db.tnaActivities.insert(record);
+        return await db.tnaPlans.insert({ ...data, modelId });
       case "daily-production-report":
         return await db.dailyProductionReports.insert(record);
       case "artwork":
-        return await db.artworkFiles.insert(record);
+        return await db.qcInspections.insert({ ...data, modelId, inspectionType: "artwork" });
       case "documentation":
-        return await db.documentationFiles.insert(record);
+        return await db.qcInspections.insert({ ...data, modelId, inspectionType: "documentation" });
       case "quality-check":
-        return await db.qualityCheckReports.insert(record);
+        return await db.qcInspections.insert({ ...data, modelId });
+      default:
+        throw new Error(`Unknown model subpage: ${subpage}`);
+    }
+  }
+
+  async deleteSubpageData(subpage: string, recordId: string) {
+    switch (subpage) {
+      case "quality-check":
+        return await db.qcInspections.delete(recordId);
+      case "trimming":
+        return await db.trimmingBoms.delete(recordId);
+      case "tna":
+        return await db.tnaPlans.delete(recordId);
       default:
         throw new Error(`Unknown model subpage: ${subpage}`);
     }

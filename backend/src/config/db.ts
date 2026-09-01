@@ -21,7 +21,7 @@ export interface DatabaseRecord {
 
 // Table field white-lists to ensure strict mapping to Prisma/Supabase schema
 const MODEL_FIELDS_MAP: Record<string, string[]> = {
-  profile: ["id", "userId", "email", "fullName", "role", "phone", "avatarUrl"],
+  profile: ["id", "userId", "email", "passwordHash", "fullName", "role", "phone", "avatarUrl"],
   factory: ["id", "name", "code", "location", "address", "contactPerson", "contactEmail", "contactPhone", "complianceGrade", "totalCapacityMonthly"],
   brand: ["id", "name", "code", "country", "primaryContact", "email", "phone", "description", "logoUrl", "totalModels", "activeOrders"],
   model: ["id", "brandId", "factoryId", "factoryName", "code", "name", "category", "imageUrl", "status", "daysToHandover", "buyer", "department", "subclass", "season", "targetFob"],
@@ -287,7 +287,7 @@ function sanitizeData(modelName: string, data: Record<string, any>): Record<stri
 /**
  * Universal Database Table Manager for Express Backend backed by Prisma & Supabase PostgreSQL.
  */
-export class BackendDbTable<T extends { id?: string }> {
+export class BackendDbTable<T extends Record<string, any> = Record<string, any>> {
   private modelName: string;
   private delegate: any;
 
@@ -295,11 +295,45 @@ export class BackendDbTable<T extends { id?: string }> {
     this.modelName = modelName;
     this.delegate = (prisma as any)[modelName];
     if (!this.delegate) {
-      console.warn(`[Database Warning] Prisma model delegate not found for '${modelName}'. Check schema definitions.`);
+      throw new Error(
+        `Database is unavailable: Prisma model '${modelName}' is not registered. Configure DATABASE_URL/DIRECT_URL and ensure the schema includes this table.`,
+      );
     }
   }
 
+  private toDbError(err: any, action: string): Error {
+    const baseMessage = err?.message || err?.code || "Unknown database error";
+    const codeText = err?.code ? ` (code: ${err.code})` : "";
+
+    return new Error(
+      `Database is unavailable while ${action} on '${this.modelName}'. Configure DATABASE_URL/DIRECT_URL and ensure PostgreSQL is reachable.${codeText} Original error: ${baseMessage}`,
+    );
+  }
+
+  private ensureAvailable(): void {
+    if (!this.delegate) {
+      throw new Error(
+        `Database is unavailable: Prisma model '${this.modelName}' is not registered. Configure DATABASE_URL/DIRECT_URL and ensure the schema includes this table.`,
+      );
+    }
+  }
+
+  private matchesRecord(item: Record<string, any>, where?: Record<string, any>): boolean {
+    if (!where) return true;
+
+    return Object.entries(where).every(([key, expected]) => {
+      const actual = (item as any)[key];
+      if (expected === undefined || expected === null) return true;
+      if (typeof expected === "object" && expected !== null && !(expected instanceof Date)) {
+        return JSON.stringify(actual) === JSON.stringify(expected);
+      }
+      return actual === expected;
+    });
+  }
+
   async select(where?: Record<string, any>, options?: { orderBy?: any; take?: number; skip?: number }): Promise<T[]> {
+    this.ensureAvailable();
+
     try {
       const cleanWhere = where ? sanitizeData(this.modelName, where) : undefined;
       return await this.delegate.findMany({
@@ -309,25 +343,27 @@ export class BackendDbTable<T extends { id?: string }> {
         skip: options?.skip,
       });
     } catch (err: any) {
-      console.error(`[Database Error] select failed on model '${this.modelName}':`, err.message || err);
-      return [];
+      throw this.toDbError(err, "reading");
     }
   }
 
   async selectById(id: string): Promise<T | null> {
+    this.ensureAvailable();
+
     try {
       return await this.delegate.findUnique({
         where: { id },
       });
     } catch (err: any) {
-      console.error(`[Database Error] selectById failed on model '${this.modelName}' for id '${id}':`, err.message || err);
-      return null;
+      throw this.toDbError(err, "loading a record by id");
     }
   }
 
   async insert(record: T): Promise<T> {
+    this.ensureAvailable();
+
     try {
-      const clean = sanitizeData(this.modelName, record);
+      const clean = sanitizeData(this.modelName, record as Record<string, any>);
       const id = clean.id || `rec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       clean.id = id;
 
@@ -337,8 +373,7 @@ export class BackendDbTable<T extends { id?: string }> {
         create: clean,
       });
     } catch (err: any) {
-      console.error(`[Database Error] insert/upsert failed on model '${this.modelName}':`, err.message || err);
-      throw err;
+      throw this.toDbError(err, "inserting");
     }
   }
 
@@ -355,8 +390,10 @@ export class BackendDbTable<T extends { id?: string }> {
   }
 
   async update(id: string, updates: Partial<T>): Promise<T | null> {
+    this.ensureAvailable();
+
     try {
-      const clean = sanitizeData(this.modelName, updates);
+      const clean = sanitizeData(this.modelName, updates as Record<string, any>);
       delete clean.id;
 
       return await this.delegate.update({
@@ -364,12 +401,13 @@ export class BackendDbTable<T extends { id?: string }> {
         data: clean,
       });
     } catch (err: any) {
-      console.error(`[Database Error] update failed on model '${this.modelName}' for id '${id}':`, err.message || err);
-      throw err;
+      throw this.toDbError(err, "updating");
     }
   }
 
   async delete(id: string): Promise<boolean> {
+    this.ensureAvailable();
+
     try {
       const res = await this.delegate.deleteMany({
         where: { id },
@@ -378,24 +416,25 @@ export class BackendDbTable<T extends { id?: string }> {
 
       try {
         await this.delegate.delete({ where: { id } });
+        return true;
       } catch (innerErr: any) {
-        if (innerErr?.code === "P2025") return true;
+        if (innerErr?.code === "P2025") return false;
+        throw this.toDbError(innerErr, "deleting");
       }
       return true;
     } catch (err: any) {
-      if (err?.code === "P2025") return true;
-      console.error(`[Database Error] delete failed on model '${this.modelName}' for id '${id}':`, err.message || err);
-      return true;
+      throw this.toDbError(err, "deleting");
     }
   }
 
   async deleteMany(where?: Record<string, any>): Promise<number> {
+    this.ensureAvailable();
+
     try {
       const res = await this.delegate.deleteMany({ where: where || {} });
       return res?.count || 0;
     } catch (err: any) {
-      console.error(`[Database Error] deleteMany failed on model '${this.modelName}':`, err.message || err);
-      return 0;
+      throw this.toDbError(err, "deleting many records");
     }
   }
 }

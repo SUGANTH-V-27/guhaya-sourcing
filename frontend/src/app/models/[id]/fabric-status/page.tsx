@@ -74,6 +74,22 @@ export default function ModelFabricStatusPage({
   const [modalRemarks, setModalRemarks] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "fabric-status")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (typeof data.totalOrderQty === "number") setTotalOrderQty(data.totalOrderQty);
+          if (typeof data.numberOfFabrics === "number") setNumberOfFabrics(data.numberOfFabrics);
+          if (Array.isArray(data.fabricRows)) setFabricRows(data.fabricRows);
+          if (Array.isArray(data.statusEntries)) setStatusEntries(data.statusEntries);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleNumberFabricsChange(count: number) {
     const val = Math.max(1, Math.min(10, count || 1));
@@ -126,7 +142,20 @@ export default function ModelFabricStatusPage({
     setStatusEntries(statusEntries.filter((s) => s.id !== id));
   }
 
-  function handleSaveHeader() {
+  async function handleSaveHeader() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `fabric-status-${modelId}`,
+        modelId,
+        inspectionType: "fabric-status",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ totalOrderQty, numberOfFabrics, fabricRows, statusEntries }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save fabric status.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

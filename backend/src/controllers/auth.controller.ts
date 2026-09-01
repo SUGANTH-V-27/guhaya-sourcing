@@ -5,25 +5,26 @@ import { sendSuccess, sendError } from "../utils/helpers.js";
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    if (!email) {
-      return sendError(res, "Email is required", 400);
+    if (!email || !password) {
+      return sendError(res, "Email and password are required", 400);
     }
 
     const result = await authService.login(email, password);
     return sendSuccess(res, result, "Login successful");
   } catch (error: any) {
-    return sendError(res, error.message || "Login failed", 500, error);
+    const statusCode = error.message === "Invalid email or password" ? 401 : 400;
+    return sendError(res, error.message || "Login failed", statusCode, error);
   }
 };
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, fullName, role, phone } = req.body;
-    if (!email) {
-      return sendError(res, "Email is required", 400);
+    const { email, password, fullName, role, phone } = req.body;
+    if (!email || !password) {
+      return sendError(res, "Email and password are required", 400);
     }
 
-    const result = await authService.register({ email, fullName, role, phone });
+    const result = await authService.register({ email, password, fullName, role, phone });
     return sendSuccess(res, result, "Registration successful", 201);
   } catch (error: any) {
     return sendError(res, error.message || "Registration failed", 400, error);

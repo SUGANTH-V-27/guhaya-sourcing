@@ -111,6 +111,15 @@ export const deleteIncome = async (req: Request, res: Response) => {
   }
 };
 
+export const updateIncome = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.updateIncomeEntry(req.params.id, req.body);
+    return sendSuccess(res, data, "Income updated");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update income", 400, error);
+  }
+};
+
 export const deleteExpense = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -118,6 +127,15 @@ export const deleteExpense = async (req: Request, res: Response) => {
     return sendSuccess(res, { id }, "Expense deleted");
   } catch (error: any) {
     return sendError(res, error.message || "Failed to delete expense", 500, error);
+  }
+};
+
+export const updateExpense = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.updateExpenseEntry(req.params.id, req.body);
+    return sendSuccess(res, data, "Expense updated");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update expense", 400, error);
   }
 };
 
@@ -269,6 +287,17 @@ export const createAdvance = async (req: Request, res: Response) => {
     return sendSuccess(res, data, "Advance recorded", 201);
   } catch (error: any) {
     return sendError(res, error.message || "Failed to create advance", 400, error);
+  }
+};
+
+export const updateAdvance = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await financeService.updateAdvance(id, req.body);
+    if (!data) return sendError(res, "Advance not found", 404);
+    return sendSuccess(res, data, "Advance updated");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update advance", 400, error);
   }
 };
 

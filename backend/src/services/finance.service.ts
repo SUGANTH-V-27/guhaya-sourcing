@@ -103,6 +103,10 @@ export class FinanceService {
     return await db.incomeEntries.delete(id);
   }
 
+  async updateIncomeEntry(id: string, data: any) {
+    return await db.incomeEntries.update(id, data);
+  }
+
   async getExpenseEntries(monthKey?: string) {
     const query = monthKey ? { monthKey } : undefined;
     return await db.expenseEntries.findMany(query);
@@ -125,6 +129,10 @@ export class FinanceService {
 
   async deleteExpenseEntry(id: string) {
     return await db.expenseEntries.delete(id);
+  }
+
+  async updateExpenseEntry(id: string, data: any) {
+    return await db.expenseEntries.update(id, data);
   }
 
   // ── Commissions ──────────────────────────────────────────────────────────
@@ -195,7 +203,15 @@ export class FinanceService {
 
   // ── Attendance ───────────────────────────────────────────────────────────
   async getAttendanceRecords(year?: number, month?: number) {
-    return await db.attendanceRecords.findMany();
+    const records = await db.attendanceRecords.findMany();
+    return records.filter((record: any) => {
+      if (!record.attendanceDate) return false;
+      const date = new Date(record.attendanceDate);
+      if (Number.isNaN(date.getTime())) return false;
+      if (year !== undefined && date.getUTCFullYear() !== year) return false;
+      if (month !== undefined && date.getUTCMonth() + 1 !== month) return false;
+      return true;
+    });
   }
 
   async saveAttendanceRecord(data: any) {
@@ -271,11 +287,31 @@ export class FinanceService {
       id,
       staffId: data.staffId || data.employeeId,
       amount,
-      balanceRemaining: Number(data.balanceRemaining) || amount,
+      balanceAmount: Number(data.balanceAmount || data.balanceRemaining) || amount,
       monthlyDeduction,
-      disbursedDate: data.disbursedDate || data.date ? new Date(data.disbursedDate || data.date) : new Date(),
+      advanceDate: data.advanceDate || data.disbursedDate || data.date
+        ? new Date(data.advanceDate || data.disbursedDate || data.date)
+        : new Date(),
       status: data.status || "Active",
-      purpose: data.purpose || data.description || null,
+      reason: data.reason || data.purpose || data.description || null,
+    });
+  }
+
+  async updateAdvance(id: string, data: any) {
+    const current = await db.advancePayments.findOne(id);
+    if (!current) return null;
+
+    const amount = Number(data.amount ?? current.amount) || 0;
+    const repaidAmount = Math.min(
+      amount,
+      Math.max(0, Number(data.repaidAmount ?? current.repaidAmount) || 0),
+    );
+    const balanceAmount = Math.max(0, amount - repaidAmount);
+
+    return await db.advancePayments.update(id, {
+      repaidAmount,
+      balanceAmount,
+      status: balanceAmount === 0 ? "Completed" : (data.status || "Active"),
     });
   }
 

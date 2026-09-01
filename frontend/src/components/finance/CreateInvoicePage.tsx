@@ -273,12 +273,13 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     return true;
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!date) return;
     if (!validateInvoiceNumber()) return;
 
     if (isEdit && editId) {
-      updateInvoice(editId, {
+      try {
+        await updateInvoice(editId, {
         invoiceNumber: invoiceNumber.trim().toUpperCase(),
         date,
         brandName,
@@ -289,7 +290,11 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
         bankDiscountPct,
         cgstPct,
         sgstPct,
-      });
+        });
+      } catch (error: any) {
+        alert(error?.message || "Failed to update invoice.");
+        return;
+      }
     } else {
       const record: InvoiceRecord = {
         id: `inv-${Date.now()}`,
@@ -308,7 +313,12 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
         remarks: "",
         createdAt: new Date().toISOString(),
       };
-      addInvoice(record);
+      try {
+        await addInvoice(record);
+      } catch (error: any) {
+        alert(error?.message || "Failed to create invoice.");
+        return;
+      }
     }
 
     router.push("/finance/invoices");

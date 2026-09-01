@@ -52,7 +52,8 @@ export default function SignupPage() {
         <img
           src="/guhayalogo.png"
           alt="Guhaya Sourcing Logo"
-          className="h-48 w-auto object-contain animate-in fade-in duration-700"
+          className="h-48 w-auto object-contain animate-in fade-in duration-700 drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
+          style={{ filter: "brightness(1.1) saturate(1.2)" }}
         />
       </div>
 

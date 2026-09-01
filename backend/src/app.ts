@@ -10,11 +10,12 @@ import auditRoutes from "./routes/audit.routes.js";
 import costingRoutes from "./routes/costing.routes.js";
 import financeRoutes from "./routes/finance.routes.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
+import { authenticate } from "./middlewares/auth.middleware.js";
 
 const app: Express = express();
 
 // Middleware
-app.use(cors({ origin: "*" })); // Allow frontend origin dynamically
+app.use(cors({ origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN }));
 app.use(morgan("dev"));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -30,12 +31,12 @@ app.get(["/health", "/api/health"], (req, res) => {
 
 // Mount Routes
 app.use("/api/auth", authRoutes);
-app.use(["/api/brands", "/api/brand"], brandRoutes);
-app.use(["/api/models", "/api/model"], modelRoutes);
-app.use(["/api/orders", "/api/order"], orderRoutes);
-app.use(["/api/audit", "/api/audits"], auditRoutes);
-app.use(["/api/costing", "/api/costings"], costingRoutes);
-app.use("/api/finance", financeRoutes);
+app.use(["/api/brands", "/api/brand"], authenticate, brandRoutes);
+app.use(["/api/models", "/api/model"], authenticate, modelRoutes);
+app.use(["/api/orders", "/api/order"], authenticate, orderRoutes);
+app.use(["/api/audit", "/api/audits"], authenticate, auditRoutes);
+app.use(["/api/costing", "/api/costings"], authenticate, costingRoutes);
+app.use("/api/finance", authenticate, financeRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

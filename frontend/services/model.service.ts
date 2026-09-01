@@ -31,6 +31,10 @@ export const modelService = {
   async saveSubpageData(modelId: string, subpage: string, data: any) {
     return await api.post(`/models/${modelId}/${subpage}`, data);
   },
+
+  async deleteSubpageData(modelId: string, subpage: string, recordId: string) {
+    return await api.delete(`/models/${modelId}/${subpage}/${recordId}`);
+  },
 };
 
 export default modelService;

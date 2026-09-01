@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface ArtworkRow {
   id: string;
@@ -23,6 +24,7 @@ interface ArtworkRow {
   receivedDate: string;
   fileName?: string;
   fileSize?: string;
+  fileUrl?: string;
 }
 
 function AiIcon() {
@@ -56,6 +58,19 @@ export default function ModelArtworkPage({
 
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "artwork")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (Array.isArray(data.rows)) setRows(data.rows);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   function handleAddRow() {
     const newRow: ArtworkRow = {
       id: `art-${Date.now()}`,
@@ -76,10 +91,17 @@ export default function ModelArtworkPage({
     );
   }
 
-  function handleFileUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+    let fileUrl: string | undefined;
+    try {
+      fileUrl = (await uploadModelFile(modelId, file)) || undefined;
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload artwork file.");
+      return;
+    }
     setRows((prev) =>
       prev.map((r) =>
         r.id === id
@@ -87,13 +109,27 @@ export default function ModelArtworkPage({
               ...r,
               fileName: file.name,
               fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+              fileUrl,
             }
           : r
       )
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `artwork-${modelId}`,
+        modelId,
+        inspectionType: "artwork",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ rows }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save artwork records.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

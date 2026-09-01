@@ -439,7 +439,7 @@ export default function CreateSocialCompliancePage() {
     return { label: "Red", color: "bg-red-500 text-white" };
   }
 
-  function handleSave() {
+  async function handleSave() {
     const audit: SocialComplianceAudit = {
       id: `sca-${Date.now()}`,
       factoryName,
@@ -473,8 +473,12 @@ export default function CreateSocialCompliancePage() {
       address: factoryAddress,
     } as any;
 
-    saveOrUpdateSocialAudit(audit);
-    router.push("/audit/social-compliance");
+    try {
+      await saveOrUpdateSocialAudit(audit);
+      router.push("/audit/social-compliance");
+    } catch (error: any) {
+      alert(error?.message || "Failed to save social compliance audit.");
+    }
   }
 
   const TABS: { id: TabId; label: string }[] = [

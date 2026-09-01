@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface TNARow {
   id: string;
@@ -31,6 +32,7 @@ export default function ModelTNAPage({
   const { id: modelId } = React.use(params);
   const [rows, setRows] = useState<TNARow[]>(DEFAULT_TNA_ACTIVITIES);
   const [isSavedAlert, setIsSavedAlert] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function calculateStatus(planned: string, actual: string) {
     if (!planned || !actual) return null;
@@ -72,9 +74,28 @@ export default function ModelTNAPage({
     );
   }
 
-  function handleSave() {
-    setIsSavedAlert(true);
-    setTimeout(() => setIsSavedAlert(false), 3000);
+  async function handleSave() {
+    setSaveError(null);
+    try {
+      await Promise.all(
+        rows.map((row) =>
+          ModelsApi.saveTnaPlan({
+            id: row.id,
+            modelId,
+            poNumber: "",
+            orderQty: 0,
+            exFactoryDate: row.plannedDate || undefined,
+            totalStages: 1,
+            completedStages: row.actualDate ? 1 : 0,
+            status: row.actualDate ? "Completed" : "Pending",
+          })
+        )
+      );
+      setIsSavedAlert(true);
+      setTimeout(() => setIsSavedAlert(false), 3000);
+    } catch (error: any) {
+      setSaveError(error?.message || "Failed to save T&A plan.");
+    }
   }
 
   return (
@@ -108,6 +129,11 @@ export default function ModelTNAPage({
             <button onClick={() => setIsSavedAlert(false)} className="text-teal-400 hover:text-white">
               ✕
             </button>
+          </div>
+        )}
+        {saveError && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">
+            {saveError}
           </div>
         )}
 

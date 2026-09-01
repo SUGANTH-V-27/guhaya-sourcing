@@ -1,25 +1,20 @@
 import { db } from "../config/db.js";
 import { signToken } from "../utils/jwt.js";
 import { UserProfile } from "../types/index.js";
+import { hashPassword, verifyPassword } from "../utils/password.js";
 
 export class AuthService {
   async login(email: string, password?: string) {
-    if (!email) {
-      throw new Error("Email is required");
+    if (!email || !password) {
+      throw new Error("Email and password are required");
     }
 
     const cleanEmail = email.trim().toLowerCase();
     let profiles = await db.profiles.select({ email: cleanEmail });
     let profile = profiles[0];
 
-    if (!profile) {
-      // Auto-create initial profile in Supabase if logging in with a new email
-      profile = await db.profiles.insert({
-        id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        email: cleanEmail,
-        fullName: cleanEmail.split("@")[0],
-        role: "Merchandiser",
-      });
+    if (!profile || !profile.passwordHash || !(await verifyPassword(password, profile.passwordHash))) {
+      throw new Error("Invalid email or password");
     }
 
     const token = signToken({
@@ -41,38 +36,21 @@ export class AuthService {
     };
   }
 
-  async register(data: { email: string; fullName?: string; role?: string; phone?: string }) {
-    if (!data.email) {
-      throw new Error("Email is required");
+  async register(data: { email: string; password: string; fullName?: string; role?: string; phone?: string }) {
+    if (!data.email || !data.password) {
+      throw new Error("Email and password are required");
     }
 
     const cleanEmail = data.email.trim().toLowerCase();
     const existing = await db.profiles.select({ email: cleanEmail });
     if (existing && existing.length > 0) {
-      // If user already exists, update and return login session
-      const existingUser = existing[0];
-      const token = signToken({
-        id: String(existingUser.id || ""),
-        email: String(existingUser.email || cleanEmail),
-        role: String(existingUser.role || "Merchandiser"),
-      });
-
-      return {
-        token,
-        user: {
-          id: String(existingUser.id || ""),
-          email: String(existingUser.email || cleanEmail),
-          fullName: existingUser.fullName || data.fullName || cleanEmail.split("@")[0],
-          role: existingUser.role || data.role || "Merchandiser",
-          phone: existingUser.phone || data.phone || null,
-          avatarUrl: existingUser.avatarUrl || null,
-        },
-      };
+      throw new Error("An account with this email already exists");
     }
 
     const newProfile = await db.profiles.insert({
       id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       email: cleanEmail,
+      passwordHash: await hashPassword(data.password),
       fullName: data.fullName || cleanEmail.split("@")[0],
       role: data.role || "Merchandiser",
       phone: data.phone || null,

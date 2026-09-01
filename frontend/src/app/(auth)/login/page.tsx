@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
-import { Eye, EyeOff, Lock, Mail, Play, SkipForward } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authService } from "@/../services/auth.service";
 
@@ -23,9 +23,9 @@ export default function LoginPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // If already seen in this session or prefers reduced motion
+    // If prefers reduced motion, skip video
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches || sessionStorage.getItem(SESSION_KEY)) {
+    if (mq.matches) {
       setIsPlayingVideo(false);
       setVideoEnded(true);
       return;
@@ -41,19 +41,14 @@ export default function LoginPage() {
 
   function handleVideoFinished() {
     setIsPlayingVideo(false);
-    setVideoEnded(true);
+    // Keep videoEnded false for 4.2 seconds - gives flying logo time (3.2s) + breath time (1s)
+    setTimeout(() => {
+      setVideoEnded(true);
+    }, 4200);
     sessionStorage.setItem(SESSION_KEY, "1");
   }
 
-  function handleReplayVideo() {
-    sessionStorage.removeItem(SESSION_KEY);
-    setVideoEnded(false);
-    setIsPlayingVideo(true);
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {});
-    }
-  }
+
 
   /* Auth handler */
   async function handleSubmit(e: React.FormEvent) {
@@ -81,110 +76,157 @@ export default function LoginPage() {
 
   return (
     <div className="relative w-full min-h-[580px] flex flex-col items-center justify-center">
-      {/* ── Brand Video Intro Overlay ────────────────────────────────────── */}
+      {/* ── Brand Video Intro Overlay (Full Screen Cinematic) ────────────────────────────────────── */}
       <AnimatePresence>
         {isPlayingVideo && (
           <motion.div
             key="intro-video-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black"
           >
-            <div className="relative max-w-lg w-full px-6 flex flex-col items-center">
-              <video
-                ref={videoRef}
-                src="/intro-video.mp4"
-                autoPlay
-                muted
-                playsInline
-                onEnded={handleVideoFinished}
-                className="w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl"
-              />
-
-              <button
-                type="button"
-                onClick={handleVideoFinished}
-                className="mt-6 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 text-teal-300 text-xs font-semibold hover:bg-teal-500/20 hover:border-teal-400 transition"
-              >
-                <span>Skip Intro</span>
-                <SkipForward size={13} />
-              </button>
-            </div>
+            <video
+              ref={videoRef}
+              src="/intro-video.mp4"
+              autoPlay
+              muted
+              playsInline
+              onEnded={handleVideoFinished}
+              className="w-full h-full object-cover"
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Main Login Layout ────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: videoEnded ? 0 : 0.2 }}
-        className="w-full flex flex-col items-center"
-      >
-        {/* Brand Logo & Replay Button */}
-        <div className="mb-6 flex flex-col items-center text-center select-none group relative">
-          <img
-            src="/guhayalogo.png"
-            alt="Guhaya Sourcing Logo"
-            className="h-44 sm:h-48 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-          <button
-            type="button"
-            onClick={handleReplayVideo}
-            title="Replay intro video"
-            className="mt-2 inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-teal-400 transition"
+      {/* ── Flying Logo (Video Logo transitioning to Login Logo) ────────────────────────────────────── */}
+      <AnimatePresence>
+        {!isPlayingVideo && !videoEnded && (
+          <motion.div
+            key="flying-logo"
+            initial={{ 
+              opacity: 1, 
+              scale: 2.6, 
+              top: "45%", 
+              left: "50%",
+              translateX: "-50%",
+              translateY: "-50%"
+            }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1, 
+              top: "32%", 
+              left: "50%",
+              translateX: "-50%",
+              translateY: "-50%"
+            }}
+            exit={{ opacity: 1 }}
+            transition={{ duration: 2.0, ease: "easeOut" }}
+            className="fixed z-50 flex items-center justify-center pointer-events-none"
           >
-            <Play size={11} /> Replay Intro
-          </button>
-        </div>
+            <img
+              src="/guhayalogo.png"
+              alt="Guhaya Sourcing Logo"
+              className="h-44 sm:h-48 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
+              style={{ filter: "brightness(1.1) saturate(1.2)" }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Login Form Card */}
-        <form onSubmit={handleSubmit} className="w-full space-y-4 max-w-md">
+      {/* ── Black background fade during logo flight ────────────────────────────────────── */}
+      <AnimatePresence>
+        {!isPlayingVideo && !videoEnded && (
+          <motion.div
+            key="bg-fade"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 3.2, ease: "easeOut" }}
+            className="fixed inset-0 z-40 bg-black pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Login Layout ────────────────────────────────────────────── */}
+      {videoEnded && (
+        <div className="w-full flex flex-col items-center">
+          {/* Brand Logo - Stays visible instantly where flying logo landed */}
+          <div className="mb-6 flex flex-col items-center text-center select-none group relative">
+            <img
+              src="/guhayalogo.png"
+              alt="Guhaya Sourcing Logo"
+              className="h-44 sm:h-48 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
+              style={{ filter: "brightness(1.1) saturate(1.2)" }}
+            />
+          </div>
+
+          {/* Login Form - Fades in after logo is visible */}
+          <motion.form
+            onSubmit={handleSubmit}
+            key="login-form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="w-full space-y-4 max-w-md"
+          >
           {error && (
-            <div className="rounded-xl border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300 animate-in fade-in">
+            <div
+              className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2.5 text-xs text-red-400 text-center"
+              role="alert"
+            >
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+            <label
+              htmlFor="login-email"
+              className="block text-xs font-medium text-gray-300 mb-1.5"
+            >
               Email Address
             </label>
-            <div className="relative">
+            <div className="relative flex items-center rounded-xl border border-gray-800 bg-[#0d1519]/90 px-3.5 py-2.5 transition focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500/30">
+              <Mail size={16} className="text-gray-400 shrink-0 mr-3" />
               <input
+                id="login-email"
                 type="email"
                 required
                 placeholder="merchandiser@guhaya.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-gray-800 bg-[#0d1414] px-4 py-2.5 pl-10 text-xs text-white placeholder-gray-600 focus:border-teal-400 focus:outline-none transition shadow-inner"
+                className="w-full bg-transparent text-sm text-white placeholder-gray-500 outline-none"
               />
-              <Mail size={15} className="absolute left-3.5 top-3 text-gray-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+            <label
+              htmlFor="login-password"
+              className="block text-xs font-medium text-gray-300 mb-1.5"
+            >
               Password
             </label>
-            <div className="relative">
+            <div className="relative flex items-center rounded-xl border border-gray-800 bg-[#0d1519]/90 px-3.5 py-2.5 transition focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500/30">
+              <Lock size={16} className="text-gray-400 shrink-0 mr-3" />
               <input
+                id="login-password"
                 type={showPassword ? "text" : "password"}
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-gray-800 bg-[#0d1414] px-4 py-2.5 pl-10 pr-10 text-xs text-white placeholder-gray-600 focus:border-teal-400 focus:outline-none transition shadow-inner"
+                className="w-full bg-transparent text-sm text-white placeholder-gray-500 outline-none pr-2"
               />
-              <Lock size={15} className="absolute left-3.5 top-3 text-gray-500" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-gray-500 hover:text-white"
+                className="text-gray-400 hover:text-gray-200 transition shrink-0"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -192,9 +234,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[#00BFA5] py-2.5 text-xs font-bold text-black shadow-lg hover:bg-[#00a892] transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full mt-3 rounded-xl bg-[#00BFA5] py-3 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 hover:bg-[#00ab94] active:scale-[0.99] transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {loading ? "Authenticating..." : "Sign In to Guhaya Track"}
+            {loading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Authenticating…</span>
+              </>
+            ) : (
+              "Sign In to Guhaya Track"
+            )}
           </button>
 
           <div className="text-center pt-2 text-xs text-gray-400">
@@ -203,8 +252,9 @@ export default function LoginPage() {
               Create one
             </Link>
           </div>
-        </form>
-      </motion.div>
+          </motion.form>
+        </div>
+      )}
     </div>
   );
 }

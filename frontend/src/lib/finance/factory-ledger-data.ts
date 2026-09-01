@@ -81,7 +81,8 @@ export function getAvailableFiscalYears(): string[] {
 export function computeFactoryLedger(
   factoryName: string,
   fiscalYear: string,
-  openingBalance: number = 0
+  openingBalance: number = 0,
+  backendEntries: LedgerTransaction[] = [],
 ): FactoryLedgerSummary {
   if (!factoryName) {
     return {
@@ -96,6 +97,12 @@ export function computeFactoryLedger(
   }
 
   const rawEntries: Omit<LedgerTransaction, "balance">[] = [];
+
+  for (const entry of backendEntries) {
+    if (getFiscalYearFromDate(entry.date) === fiscalYear) {
+      rawEntries.push({ ...entry });
+    }
+  }
 
   // 1. Get from stored mock entries if matched
   const mock = INITIAL_MOCK_TRANSACTIONS[factoryName];

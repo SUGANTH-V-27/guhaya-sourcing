@@ -28,7 +28,7 @@ import {
   MONTH_OPTIONS,
   monthLabel,
 } from "@/lib/finance/income-expenses-utils";
-import { loadStaff, type StaffMember } from "@/lib/finance/staff-storage";
+import { loadStaffAsync, type StaffMember } from "@/lib/finance/staff-storage";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-teal-400/60";
@@ -59,18 +59,25 @@ export function IncomeExpensesPage() {
   const [incomeDraft, setIncomeDraft] = useState<DraftEntry>(emptyDraft);
   const [expenseDraft, setExpenseDraft] = useState<DraftEntry>(emptyDraft);
 
-  const refresh = useCallback(() => {
-    setStaff(loadStaff());
-    setAdditionalIncome(getManualEntriesForMonth(year, month, "income"));
-    setAdditionalExpenses(getManualEntriesForMonth(year, month, "expense"));
+  const refresh = useCallback(async () => {
+    const staffRecords = await loadStaffAsync();
+    setStaff(staffRecords);
+    const [income, expenses] = await Promise.all([
+      getManualEntriesForMonth(year, month, "income"),
+      getManualEntriesForMonth(year, month, "expense"),
+    ]);
+    setAdditionalIncome(income);
+    setAdditionalExpenses(expenses);
   }, [year, month]);
 
   useEffect(() => {
-    refresh();
+    refresh().catch((error: any) => alert(error?.message || "Failed to load finance data."));
   }, [refresh]);
 
   useEffect(() => {
-    const onFocus = () => refresh();
+    const onFocus = () => {
+      refresh().catch((error: any) => alert(error?.message || "Failed to load finance data."));
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
@@ -118,39 +125,37 @@ export function IncomeExpensesPage() {
     setYear(nextYear);
   }
 
-  function handleAddIncome() {
+  async function handleAddIncome() {
     const value = Number(incomeDraft.value);
     if (!incomeDraft.date || !value) return;
-    addManualEntry({
-      year,
-      month,
-      type: "income",
-      date: incomeDraft.date,
-      value,
-      remarks: incomeDraft.remarks.trim(),
-    });
-    setIncomeDraft(emptyDraft());
-    refresh();
+    try {
+      await addManualEntry({ year, month, type: "income", date: incomeDraft.date, value, remarks: incomeDraft.remarks.trim() });
+      setIncomeDraft(emptyDraft());
+      await refresh();
+    } catch (error: any) {
+      alert(error?.message || "Failed to save income entry.");
+    }
   }
 
-  function handleAddExpense() {
+  async function handleAddExpense() {
     const value = Number(expenseDraft.value);
     if (!expenseDraft.date || !value) return;
-    addManualEntry({
-      year,
-      month,
-      type: "expense",
-      date: expenseDraft.date,
-      value,
-      remarks: expenseDraft.remarks.trim(),
-    });
-    setExpenseDraft(emptyDraft());
-    refresh();
+    try {
+      await addManualEntry({ year, month, type: "expense", date: expenseDraft.date, value, remarks: expenseDraft.remarks.trim() });
+      setExpenseDraft(emptyDraft());
+      await refresh();
+    } catch (error: any) {
+      alert(error?.message || "Failed to save expense entry.");
+    }
   }
 
-  function handleDeleteEntry(id: string) {
-    deleteManualEntry(id);
-    refresh();
+  async function handleDeleteEntry(id: string, type: ManualEntry["type"]) {
+    try {
+      await deleteManualEntry(id, type);
+      await refresh();
+    } catch (error: any) {
+      alert(error?.message || "Failed to delete finance entry.");
+    }
   }
 
   return (
@@ -353,7 +358,7 @@ export function IncomeExpensesPage() {
                       <td className="px-4 py-2.5 text-center">
                         <button
                           type="button"
-                          onClick={() => handleDeleteEntry(entry.id)}
+                          onClick={() => handleDeleteEntry(entry.id, "income")}
                           className="delete-btn"
                           title="Delete"
                         >
@@ -478,7 +483,7 @@ export function IncomeExpensesPage() {
                       <td className="px-4 py-2.5 text-center">
                         <button
                           type="button"
-                          onClick={() => handleDeleteEntry(entry.id)}
+                          onClick={() => handleDeleteEntry(entry.id, "expense")}
                           className="delete-btn"
                           title="Delete"
                         >

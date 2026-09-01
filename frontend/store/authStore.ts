@@ -17,7 +17,7 @@ const listeners = new Set<(state: AuthState) => void>();
 export const authStore = {
   getState(): AuthState {
     if (typeof window !== "undefined" && !authState.token) {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || localStorage.getItem("guhaya_token");
       const userRaw = localStorage.getItem("user");
       if (token) {
         authState.token = token;

@@ -11,7 +11,9 @@ import {
   createIncome,
   createExpense,
   deleteIncome,
+  updateIncome,
   deleteExpense,
+  updateExpense,
   getCommissions,
   createCommission,
   updateCommission,
@@ -27,6 +29,7 @@ import {
   deleteSalary,
   getAdvances,
   createAdvance,
+  updateAdvance,
   deleteAdvance,
   getCompanySettings,
   saveCompanySettings,
@@ -48,7 +51,9 @@ router.delete("/ledger/:id", deleteLedgerEntry);
 // Income & Expenses
 router.get("/income-expenses", getIncomeExpenses);
 router.post("/income", createIncome);
+router.put("/income/:id", updateIncome);
 router.post("/expense", createExpense);
+router.put("/expense/:id", updateExpense);
 router.delete("/income/:id", deleteIncome);
 router.delete("/expense/:id", deleteExpense);
 
@@ -76,10 +81,12 @@ router.delete("/salaries/:id", deleteSalary);
 // Advances
 router.get("/advances", getAdvances);
 router.post("/advances", createAdvance);
+router.put("/advances/:id", updateAdvance);
 router.delete("/advances/:id", deleteAdvance);
 
 // Company Settings
 router.get("/settings", getCompanySettings);
 router.post("/settings", saveCompanySettings);
+router.put("/settings", saveCompanySettings);
 
 export default router;

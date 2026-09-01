@@ -54,6 +54,30 @@ export function CommissionPage() {
       } catch (err) {
         console.warn("Failed to load brands:", err);
       }
+      try {
+        const commissionRecords = await financeService.getCommissions();
+        setRows(
+          commissionRecords.map((record: any) => ({
+            id: record.id,
+            brandId: record.brandId || record.buyerBrand || "",
+            brandName: record.brandName || record.buyerBrand || "",
+            styleNo: record.styleNo || record.orderNumber || "",
+            poNo: record.poNo || record.orderNumber || "",
+            factory: record.factory || record.factoryName || "",
+            season: record.season || "",
+            intake: record.intake || "",
+            shipmentDate: record.shipmentDate || record.invoiceDate || "",
+            poValueUsd: Number(record.poValueUsd || record.orderValue) || 0,
+            quantity: Number(record.quantity) || 0,
+            commissionPct: Number(record.commissionPct || record.commissionRatePct) || 0,
+            rateInrUsd: Number(record.rateInrUsd) || 0,
+            status: record.status || (record.paymentStatus === "Paid" ? "paid" : "unpaid"),
+            invoice: record.invoice || null,
+          })),
+        );
+      } catch (err) {
+        console.warn("Failed to load commissions:", err);
+      }
     }
     init();
   }, []);
@@ -112,6 +136,18 @@ export function CommissionPage() {
 
   function updateRow(id: string, patch: Partial<CommissionPo>) {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  }
+
+  async function persistCommission(row: CommissionPo) {
+    try {
+      await financeService.updateCommission(row.id, {
+        commissionRatePct: row.commissionPct,
+        commissionAmount: calcCommissionInr(row.poValueUsd, row.commissionPct, row.rateInrUsd),
+        remarks: JSON.stringify({ rateInrUsd: row.rateInrUsd }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save commission changes.");
+    }
   }
 
   async function refreshFromPos() {
@@ -314,6 +350,7 @@ export function CommissionPage() {
                           step={0.1}
                           value={row.commissionPct}
                           onChange={(e) => updateRow(row.id, { commissionPct: Number(e.target.value) || 0 })}
+                          onBlur={() => persistCommission({ ...row, commissionPct: Number(row.commissionPct) || 0 })}
                           className={inlineInputClass}
                         />
                         <span className="text-gray-500">%</span>
@@ -324,6 +361,7 @@ export function CommissionPage() {
                           min={0}
                           value={row.rateInrUsd}
                           onChange={(e) => updateRow(row.id, { rateInrUsd: Number(e.target.value) || 0 })}
+                          onBlur={() => persistCommission(row)}
                           className={inlineInputClass}
                         />
                       </td>

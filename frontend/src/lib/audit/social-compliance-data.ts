@@ -139,25 +139,25 @@ export function getSocialAuditById(id: string): SocialComplianceAudit | undefine
   return loadSocialAudits().find((a) => a.id === id);
 }
 
-export function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
+export async function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
   const list = loadSocialAudits();
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
-    db.socialComplianceAudits.update(audit.id, audit).catch(() => {});
+    await db.socialComplianceAudits.update(audit.id, audit);
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    db.socialComplianceAudits.insert(audit).catch(() => {});
+    await db.socialComplianceAudits.insert(audit);
   }
   saveSocialAudits(list);
 }
 
-export function deleteSocialAudit(id: string) {
+export async function deleteSocialAudit(id: string) {
+  await db.socialComplianceAudits.delete(id);
   const list = loadSocialAudits().filter((a) => a.id !== id);
   saveSocialAudits(list);
-  db.socialComplianceAudits.delete(id).catch(() => {});
 }

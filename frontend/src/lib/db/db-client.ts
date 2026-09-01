@@ -12,8 +12,8 @@ const TABLE_ENDPOINT_MAP: Record<string, string> = {
   costing_sheets: "/costing",
   invoices: "/finance/invoices",
   factory_ledger_transactions: "/finance/ledger",
-  income_entries: "/finance/income-expenses",
-  expense_entries: "/finance/income-expenses",
+  income_entries: "/finance/income",
+  expense_entries: "/finance/expense",
   commission_records: "/finance/commissions",
   staff_members: "/finance/staff",
   attendance_records: "/finance/attendance",
@@ -35,18 +35,20 @@ export interface IDbTable<T extends { id: string | number }> {
 }
 
 /**
- * Generic Hybrid DB Table Manager:
- * - Uses Express REST Backend API when available
- * - Uses live Supabase when configured
- * - Uses LocalStorage / In-Memory persistence when offline
+ * Generic live database table manager. It uses the backend API first and a
+ * configured Supabase database as an alternative live connection.
  */
 export class HybridDbTable<T extends { id: string | number }> implements IDbTable<T> {
   private tableName: string;
-  private storageKey: string;
 
   constructor(tableName: string) {
     this.tableName = tableName;
-    this.storageKey = `guhaya_db_${tableName}`;
+  }
+
+  private apiError(res: Response): Error & { apiError: true } {
+    const error = new Error(`Backend request failed for ${this.tableName}: HTTP ${res.status}`) as Error & { apiError: true };
+    error.apiError = true;
+    return error;
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -62,43 +64,35 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
     return headers;
   }
 
-  private getLocalData(): T[] {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = localStorage.getItem(this.storageKey);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private setLocalData(data: T[]): void {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(data));
-    } catch (e) {
-      console.error(`Failed to write local table: ${this.tableName}`, e);
-    }
-  }
-
   async getAll(): Promise<T[]> {
     // 1. Try Backend REST API
     const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
     if (endpoint) {
       try {
-        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const readEndpoint = this.tableName === "income_entries" || this.tableName === "expense_entries"
+          ? "/finance/income-expenses"
+          : endpoint;
+        const res = await fetch(`${API_BASE_URL}${readEndpoint}`, {
           headers: this.getAuthHeaders(),
         });
+        if (!res.ok) throw this.apiError(res);
         if (res.ok) {
           const json = await res.json();
-          const items = json?.data !== undefined ? json.data : json;
+          const combined = json?.data;
+          const items = this.tableName === "income_entries"
+            ? combined?.income
+            : this.tableName === "expense_entries"
+              ? combined?.expenses
+              : this.tableName === "company_settings"
+                ? combined ? [combined] : []
+              : combined !== undefined ? combined : json;
           if (Array.isArray(items)) {
-            this.setLocalData(items as T[]);
             return items as T[];
           }
         }
-      } catch (err) {
-        // Fall through to Supabase/Local
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+        // Try the configured live Supabase connection below.
       }
     }
 
@@ -106,17 +100,16 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from(this.tableName).select("*");
-        if (!error && data && data.length > 0) {
-          this.setLocalData(data as T[]);
+        if (error) throw error;
+        if (data) {
           return data as T[];
         }
       } catch (err) {
-        console.warn(`Supabase query fallback for ${this.tableName}:`, err);
+        throw new Error(`Database read failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    // 3. Fallback to LocalStorage
-    return this.getLocalData();
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async getById(id: string | number): Promise<T | null> {
@@ -127,12 +120,15 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
         const res = await fetch(`${API_BASE_URL}${endpoint}/${id}`, {
           headers: this.getAuthHeaders(),
         });
+        if (!res.ok) throw this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const item = json?.data !== undefined ? json.data : json;
           if (item) return item as T;
         }
-      } catch {}
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
     }
 
     // 2. Try Supabase
@@ -149,9 +145,7 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
       }
     }
 
-    // 3. Fallback to LocalStorage
-    const items = this.getLocalData();
-    return items.find((item) => String(item.id) === String(id)) || null;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async query(filterFn: (item: T) => boolean): Promise<T[]> {
@@ -172,16 +166,17 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           headers: this.getAuthHeaders(),
           body: JSON.stringify(record),
         });
+        if (!res.ok) throw this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const inserted = json?.data !== undefined ? json.data : json;
           if (inserted) {
-            const items = this.getLocalData();
-            this.setLocalData([inserted, ...items]);
             return inserted as T;
           }
         }
-      } catch {}
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
     }
 
     // 2. Try Supabase
@@ -192,21 +187,16 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           .insert(record as any)
           .select()
           .single();
-        if (!error && inserted) {
-          const items = this.getLocalData();
-          this.setLocalData([inserted as T, ...items]);
+        if (error) throw error;
+        if (inserted) {
           return inserted as T;
         }
       } catch (err) {
-        console.warn(`Supabase insert fallback for ${this.tableName}:`, err);
+        throw new Error(`Database insert failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    // 3. Fallback to LocalStorage
-    const items = this.getLocalData();
-    const updated = [record, ...items];
-    this.setLocalData(updated);
-    return record;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async update(id: string | number, updates: Partial<T>): Promise<T | null> {
@@ -219,17 +209,17 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           headers: this.getAuthHeaders(),
           body: JSON.stringify(updates),
         });
+        if (!res.ok) throw this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const updated = json?.data !== undefined ? json.data : json;
           if (updated) {
-            const items = this.getLocalData();
-            const nextItems = items.map((item) => (String(item.id) === String(id) ? updated : item));
-            this.setLocalData(nextItems);
             return updated as T;
           }
         }
-      } catch {}
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
     }
 
     // 2. Try Supabase
@@ -241,32 +231,16 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           .eq("id", id)
           .select()
           .single();
-        if (!error && updated) {
-          const items = this.getLocalData();
-          const nextItems = items.map((item) => (String(item.id) === String(id) ? (updated as T) : item));
-          this.setLocalData(nextItems);
+        if (error) throw error;
+        if (updated) {
           return updated as T;
         }
       } catch (err) {
-        console.warn(`Supabase update fallback for ${this.tableName}:`, err);
+        throw new Error(`Database update failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    // 3. Fallback to LocalStorage
-    const items = this.getLocalData();
-    let found: T | null = null;
-    const nextItems = items.map((item) => {
-      if (String(item.id) === String(id)) {
-        found = { ...item, ...updates };
-        return found;
-      }
-      return item;
-    });
-
-    if (found) {
-      this.setLocalData(nextItems);
-    }
-    return found;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async delete(id: string | number): Promise<boolean> {
@@ -279,12 +253,13 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           headers: this.getAuthHeaders(),
         });
         if (res.ok) {
-          const items = this.getLocalData();
-          const filtered = items.filter((item) => String(item.id) !== String(id));
-          this.setLocalData(filtered);
           return true;
         }
-      } catch {}
+        throw this.apiError(res);
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+        throw new Error(`Database delete failed for ${this.tableName}: ${String(err?.message || err)}`);
+      }
     }
 
     // 2. Try Supabase
@@ -292,21 +267,15 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
       try {
         const { error } = await supabase.from(this.tableName).delete().eq("id", id);
         if (!error) {
-          const items = this.getLocalData();
-          const filtered = items.filter((item) => String(item.id) !== String(id));
-          this.setLocalData(filtered);
           return true;
         }
+        throw error;
       } catch (err) {
-        console.warn(`Supabase delete fallback for ${this.tableName}:`, err);
+        throw new Error(`Database delete failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    // 3. Fallback to LocalStorage
-    const items = this.getLocalData();
-    const filtered = items.filter((item) => String(item.id) !== String(id));
-    this.setLocalData(filtered);
-    return true;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 }
 

@@ -44,6 +44,10 @@ export class AuditService {
     return await db.technicalAudits.findMany();
   }
 
+  async getTechnicalAuditById(id: string) {
+    return await db.technicalAudits.findOne(id);
+  }
+
   async createTechnicalAudit(data: any) {
     const id = data.id || `audit_tech_${Date.now()}`;
     return await db.technicalAudits.create({
@@ -65,6 +69,10 @@ export class AuditService {
     });
   }
 
+  async updateTechnicalAudit(id: string, data: any) {
+    return await db.technicalAudits.update(id, data);
+  }
+
   async deleteTechnicalAudit(id: string) {
     return await db.technicalAudits.delete(id);
   }
@@ -72,6 +80,10 @@ export class AuditService {
   // ── Certifications ───────────────────────────────────────────────────────
   async getCertifications() {
     return await db.certifications.findMany();
+  }
+
+  async getCertificationById(id: string) {
+    return await db.certifications.findOne(id);
   }
 
   async createCertification(data: any) {
@@ -89,6 +101,10 @@ export class AuditService {
       pdfUrl: data.pdfUrl || null,
       status: data.status || "Valid",
     });
+  }
+
+  async updateCertification(id: string, data: any) {
+    return await db.certifications.update(id, data);
   }
 
   async deleteCertification(id: string) {

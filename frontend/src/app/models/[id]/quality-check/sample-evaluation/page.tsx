@@ -24,6 +24,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface SizeQtyItem {
   id: string;
@@ -64,6 +65,16 @@ export default function SampleEvaluationPage({
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [isSaved, setIsSaved] = useState(false);
 
+  React.useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "sample-evaluation")
+      .then((records) => {
+        setEvaluations(records.flatMap((record: any) => {
+          try { return [JSON.parse(record.remarks) as EvaluationRecord]; } catch { return []; }
+        }));
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Form State for New/Edit Evaluation ─────────────────────────────────────
   const [sampleType, setSampleType] = useState("Fit Sample");
   const [submission, setSubmission] = useState("1st Submission");
@@ -101,7 +112,7 @@ export default function SampleEvaluationPage({
     );
   }
 
-  function handleSaveEvaluation() {
+  async function handleSaveEvaluation() {
     const newEval: EvaluationRecord = {
       id: `eval-${Date.now()}`,
       sampleType,
@@ -113,15 +124,33 @@ export default function SampleEvaluationPage({
       createdAt: new Date().toISOString().split("T")[0],
     };
 
+    try {
+      await ModelsApi.saveQcInspection({
+        id: newEval.id,
+        modelId,
+        inspectionType: "sample-evaluation",
+        inspectionDate: new Date().toISOString(),
+        result: newEval.status,
+        remarks: JSON.stringify(newEval),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save sample evaluation.");
+      return;
+    }
     setEvaluations([newEval, ...evaluations]);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
     setViewMode("list");
   }
 
-  function handleDeleteEval(id: string) {
+  async function handleDeleteEval(id: string) {
     if (confirm("Delete this sample evaluation report?")) {
-      setEvaluations(evaluations.filter((e) => e.id !== id));
+      try {
+        await ModelsApi.deleteQcInspection(modelId, id);
+        setEvaluations((current) => current.filter((e) => e.id !== id));
+      } catch (error: any) {
+        alert(error?.message || "Failed to delete sample evaluation.");
+      }
     }
   }
 

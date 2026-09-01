@@ -76,3 +76,12 @@ export const saveModelSubpageData = async (req: Request, res: Response) => {
     return sendError(res, error.message, 500, error);
   }
 };
+
+export const deleteModelSubpageData = async (req: Request, res: Response) => {
+  try {
+    const deleted = await modelService.deleteSubpageData(req.params.subpage, req.params.recordId);
+    return sendSuccess(res, { deleted }, "Model subpage data deleted");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to delete model subpage data", 400, error);
+  }
+};

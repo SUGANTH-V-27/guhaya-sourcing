@@ -154,25 +154,25 @@ export function getTechnicalAuditById(id: string): TechnicalAudit | undefined {
   return loadTechnicalAudits().find((a) => a.id === id);
 }
 
-export function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
+export async function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
   const list = loadTechnicalAudits();
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
-    db.technicalAudits.update(audit.id, audit).catch(() => {});
+    await db.technicalAudits.update(audit.id, audit);
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    db.technicalAudits.insert(audit).catch(() => {});
+    await db.technicalAudits.insert(audit);
   }
   saveTechnicalAudits(list);
 }
 
-export function deleteTechnicalAudit(id: string) {
+export async function deleteTechnicalAudit(id: string) {
+  await db.technicalAudits.delete(id);
   const list = loadTechnicalAudits().filter((a) => a.id !== id);
   saveTechnicalAudits(list);
-  db.technicalAudits.delete(id).catch(() => {});
 }
