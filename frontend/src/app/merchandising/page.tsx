@@ -1,25 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  ArrowUpRight,
   ChevronRight,
-  Filter,
-  Layers,
-  Package,
   Plus,
   Search,
-  Sparkles,
-  Tag,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { brands, models } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
+import { ModelsApi } from "@/lib/api/models-api";
+import type { Model } from "@/../types/model";
 
 export default function MerchandisingHubPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [brandList, setBrandList] = useState<BrandEntity[]>([]);
+  const [modelList, setModelList] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredBrands = brands.filter((b) =>
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [brandsData, modelsData] = await Promise.all([
+          BrandsApi.getAll(),
+          ModelsApi.getAll(),
+        ]);
+        setBrandList(brandsData || []);
+        setModelList(modelsData as Model[] || []);
+      } catch (err) {
+        console.error("Failed to load merchandising data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const filteredBrands = brandList.filter((b) =>
     b.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -83,7 +101,7 @@ export default function MerchandisingHubPage() {
         {/* Brand Grid */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {filteredBrands.map((b) => {
-            const brandModels = models.filter((m) => m.brandId === b.id);
+            const brandModels = modelList.filter((m) => m.brandId === b.id);
             return (
               <Link
                 key={b.id}
@@ -104,7 +122,7 @@ export default function MerchandisingHubPage() {
                   {b.name}
                 </h3>
                 <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                  Comprehensive buyer account with active seasonal bookings, CAPR log &amp; QA standards.
+                  {b.description || "Comprehensive buyer account with active seasonal bookings, CAPR log & QA standards."}
                 </p>
 
                 <div className="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs text-gray-400">

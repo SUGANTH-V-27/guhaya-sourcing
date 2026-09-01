@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 
 interface FabricHeaderRow {
   id: string;
@@ -43,54 +43,52 @@ export default function ModelFabricStatusPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: modelId } = React.use(params);
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch {}
+    }
+    loadModel();
+  }, [modelId]);
 
   // ── Header State ───────────────────────────────────────────────────────────
-  const [totalOrderQty] = useState(5760);
-  const [numberOfFabrics, setNumberOfFabrics] = useState(1);
-  const [fabricRows, setFabricRows] = useState<FabricHeaderRow[]>([
-    {
-      id: "f-1",
-      fabricType: "100% Cotton Woven Canvas 280 GSM",
-      quantityKgs: "1,250",
-      noOfLots: "2",
-      avgConsumption: "0.22 kg/pc",
-    },
-  ]);
+  const [totalOrderQty, setTotalOrderQty] = useState(0);
+  const [numberOfFabrics, setNumberOfFabrics] = useState(0);
+  const [fabricRows, setFabricRows] = useState<FabricHeaderRow[]>([]);
 
   // ── Status Entries State ───────────────────────────────────────────────────
-  const [statusEntries, setStatusEntries] = useState<FabricStatusEntry[]>([
-    {
-      id: "stat-1",
-      stageName: "Yarn Sourcing & Spinning",
-      fabricType: "100% Organic Cotton",
-      lotNumber: "Lot #1",
-      status: "Completed",
-      quantity: "1,300 kgs",
-      completedDate: "2026-08-10",
-      remarks: "OEKO-TEX Certified yarn in-house at dyeing mill.",
-    },
-    {
-      id: "stat-2",
-      stageName: "Dyeing & Finishing",
-      fabricType: "Black Shade Lot DL-8821",
-      lotNumber: "Lot #1",
-      status: "Approved",
-      quantity: "1,250 kgs",
-      completedDate: "2026-08-16",
-      remarks: "Shade approved after 2nd lab dip. Shrinkage length -3.2%, width -2.8%.",
-    },
-  ]);
+  const [statusEntries, setStatusEntries] = useState<FabricStatusEntry[]>([]);
 
   // ── Modal State ────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalStageName, setModalStageName] = useState("Weaving / Knitting");
-  const [modalFabricType, setModalFabricType] = useState("100% Cotton Woven Canvas");
-  const [modalLotNumber, setModalLotNumber] = useState("Lot #2");
+  const [modalStageName, setModalStageName] = useState("");
+  const [modalFabricType, setModalFabricType] = useState("");
+  const [modalLotNumber, setModalLotNumber] = useState("");
   const [modalStatus, setModalStatus] = useState<"Pending" | "In Process" | "Completed" | "Approved" | "Delayed">("In Process");
-  const [modalQuantity, setModalQuantity] = useState("650 kgs");
+  const [modalQuantity, setModalQuantity] = useState("");
   const [modalRemarks, setModalRemarks] = useState("");
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "fabric-status")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (typeof data.totalOrderQty === "number") setTotalOrderQty(data.totalOrderQty);
+          if (typeof data.numberOfFabrics === "number") setNumberOfFabrics(data.numberOfFabrics);
+          if (Array.isArray(data.fabricRows)) setFabricRows(data.fabricRows);
+          if (Array.isArray(data.statusEntries)) setStatusEntries(data.statusEntries);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleNumberFabricsChange(count: number) {
@@ -144,7 +142,20 @@ export default function ModelFabricStatusPage({
     setStatusEntries(statusEntries.filter((s) => s.id !== id));
   }
 
-  function handleSaveHeader() {
+  async function handleSaveHeader() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `fabric-status-${modelId}`,
+        modelId,
+        inspectionType: "fabric-status",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ totalOrderQty, numberOfFabrics, fabricRows, statusEntries }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save fabric status.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

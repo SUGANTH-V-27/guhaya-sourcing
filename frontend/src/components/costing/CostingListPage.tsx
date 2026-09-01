@@ -14,6 +14,7 @@ import { SourcingShell } from "@/components/layout/SourcingShell";
 import {
   deleteCosting,
   loadCostings,
+  loadCostingsAsync,
   saveOrUpdateCosting,
   type CostSheet,
 } from "@/lib/costing/costing-data";
@@ -23,179 +24,12 @@ export function CostingListPage() {
   const [costings, setCostings] = useState<CostSheet[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Initial mock seed costings matching the screenshot if storage is empty
-  const defaultCostings: CostSheet[] = [
-    {
-      id: "cost-1",
-      brand: "Sinsay",
-      name: "299OO – Without Snap Button",
-      styleNo: "299OO-NOSNAP",
-      fabricComposition: "100% Cotton",
-      gsm: "160",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 1.27,
-      createdAt: "2026-08-22",
-      updatedAt: "2026-08-22",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-2",
-      brand: "Sinsay",
-      name: "299OO",
-      styleNo: "299OO",
-      fabricComposition: "100% Cotton",
-      gsm: "160",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 1.44,
-      createdAt: "2026-08-22",
-      updatedAt: "2026-08-22",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-3",
-      brand: "Sinsay",
-      name: "271OO",
-      styleNo: "271OO",
-      fabricComposition: "100% Cotton",
-      gsm: "180",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 1.86,
-      createdAt: "2026-08-22",
-      updatedAt: "2026-08-22",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-4",
-      brand: "Sinsay",
-      name: "399ON",
-      styleNo: "399ON",
-      fabricComposition: "100% Cotton",
-      gsm: "160",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 1.21,
-      createdAt: "2026-07-28",
-      updatedAt: "2026-07-28",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-5",
-      brand: "Sinsay",
-      name: "400ON",
-      styleNo: "400ON",
-      fabricComposition: "100% Cotton",
-      gsm: "160",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 1.00,
-      createdAt: "2026-07-28",
-      updatedAt: "2026-07-28",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-6",
-      brand: "Sinsay",
-      name: "470KN – Cotton",
-      styleNo: "470KN-C",
-      fabricComposition: "100% Cotton",
-      gsm: "220",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 4.32,
-      createdAt: "2026-05-13",
-      updatedAt: "2026-05-13",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-7",
-      brand: "Sinsay",
-      name: "472KN – Elastane",
-      styleNo: "472KN-E",
-      fabricComposition: "95% Cotton 5% Elastane",
-      gsm: "220",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 3.95,
-      createdAt: "2026-05-13",
-      updatedAt: "2026-05-13",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-8",
-      brand: "Sinsay",
-      name: "470KN",
-      styleNo: "470KN",
-      fabricComposition: "100% Cotton",
-      gsm: "240",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 5.14,
-      createdAt: "2026-05-12",
-      updatedAt: "2026-05-12",
-      image: "/models/chaos-tote.png",
-    },
-    {
-      id: "cost-9",
-      brand: "Sinsay",
-      name: "943LB",
-      styleNo: "943LB",
-      fabricComposition: "100% Cotton",
-      gsm: "200",
-      currency: "USD",
-      exchangeRate: 92,
-      targetQuantity: 10000,
-      garmentCount: 1,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: 4.23,
-      createdAt: "2026-05-05",
-      updatedAt: "2026-05-05",
-      image: "/models/chaos-tote.png",
-    },
-  ];
-
   useEffect(() => {
-    const loaded = loadCostings();
-    if (loaded && loaded.length > 0) {
-      setCostings(loaded);
-    } else {
-      setCostings(defaultCostings);
+    async function loadData() {
+      const loaded = await loadCostingsAsync();
+      setCostings(loaded || []);
     }
+    loadData();
   }, []);
 
   function showToast(msg: string) {
@@ -203,10 +37,10 @@ export function CostingListPage() {
     setTimeout(() => setToastMsg(null), 3000);
   }
 
-  function handleDelete(id: string, name: string) {
+  async function handleDelete(id: string, name: string) {
     if (confirm(`Are you sure you want to delete costing "${name}"?`)) {
-      deleteCosting(id);
       setCostings((prev) => prev.filter((c) => c.id !== id));
+      await deleteCosting(id);
       showToast("Costing deleted");
     }
   }

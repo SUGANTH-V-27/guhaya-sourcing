@@ -226,7 +226,7 @@ export default function CreateTechnicalAuditPage() {
     return { totalItems, availableCount, missingCount };
   }, [sections]);
 
-  function handleSave() {
+  async function handleSave() {
     const audit: TechnicalAudit = {
       id: `ta-${Date.now()}`,
       factoryName: factoryName || "Unnamed Factory",
@@ -252,8 +252,12 @@ export default function CreateTechnicalAuditPage() {
       updatedAt: new Date().toISOString().split("T")[0],
     } as any;
 
-    saveOrUpdateTechnicalAudit(audit);
-    router.push("/audit/technical-audit");
+    try {
+      await saveOrUpdateTechnicalAudit(audit);
+      router.push("/audit/technical-audit");
+    } catch (error: any) {
+      alert(error?.message || "Failed to save technical audit.");
+    }
   }
 
   return (

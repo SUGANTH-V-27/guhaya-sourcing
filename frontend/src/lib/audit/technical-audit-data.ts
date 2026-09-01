@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type TechnicalModule = {
   id: string;
   name: string;
@@ -37,14 +39,18 @@ export type TechnicalAudit = {
   capacity?: number;
   productCategories?: string[];
   categories?: string;
-  overallScorePercent: number;
-  grade: string;
-  status: "Approved" | "Conditional" | "Rejected";
+  overallScorePercent?: number;
+  grade?: string;
+  status?: "Approved" | "Conditional" | "Rejected" | string;
   modules: TechnicalModule[];
-  findings: TechnicalFinding[];
+  findings?: TechnicalFinding[];
   summaryConclusion?: string;
-  createdAt: string;
-  updatedAt: string;
+  conclusion?: string;
+  available?: number;
+  missing?: number;
+  total?: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export const DEFAULT_TECHNICAL_MODULES: TechnicalModule[] = [
@@ -148,22 +154,25 @@ export function getTechnicalAuditById(id: string): TechnicalAudit | undefined {
   return loadTechnicalAudits().find((a) => a.id === id);
 }
 
-export function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
+export async function saveOrUpdateTechnicalAudit(audit: TechnicalAudit) {
   const list = loadTechnicalAudits();
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
+    await db.technicalAudits.update(audit.id, audit);
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    await db.technicalAudits.insert(audit);
   }
   saveTechnicalAudits(list);
 }
 
-export function deleteTechnicalAudit(id: string) {
+export async function deleteTechnicalAudit(id: string) {
+  await db.technicalAudits.delete(id);
   const list = loadTechnicalAudits().filter((a) => a.id !== id);
   saveTechnicalAudits(list);
 }

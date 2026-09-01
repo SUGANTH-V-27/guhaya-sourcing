@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { authService } from "@/../services/auth.service";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -30,10 +31,15 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const res = await authService.register(email.trim(), name.trim(), password);
+      if (res?.user && typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(res.user));
+        localStorage.setItem("token", res.token);
+      }
       router.push("/dashboard");
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      setError(err?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -46,7 +52,8 @@ export default function SignupPage() {
         <img
           src="/guhayalogo.png"
           alt="Guhaya Sourcing Logo"
-          className="h-48 w-auto object-contain animate-in fade-in duration-700"
+          className="h-48 w-auto object-contain animate-in fade-in duration-700 drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
+          style={{ filter: "brightness(1.1) saturate(1.2)" }}
         />
       </div>
 

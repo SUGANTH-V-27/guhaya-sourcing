@@ -22,6 +22,7 @@ import {
   type SocialComplianceAudit,
   type SectionScore,
 } from "@/lib/audit/social-compliance-data";
+import { db } from "@/lib/db/db-client";
 
 // Grade color helpers
 function gradeColor(grade: string) {
@@ -33,48 +34,7 @@ function gradeColor(grade: string) {
   return "bg-gray-700 text-gray-200";
 }
 
-const DEFAULT_AUDITS: SocialComplianceAudit[] = [
-  {
-    id: "sa-1",
-    brand: "Sinsay",
-    auditDate: "2026-04-10",
-    factoryName: "KRK Creationss",
-    address: "4/187-1, Avinashiligampalaym, Palangarai...",
-    auditorName: "Lead Quality Auditor",
-    auditType: "Periodic Audit",
-    grade: "Red" as any,
-    overallScorePercent: 86.5,
-    sectionScores: buildDefaultSectionScores(),
-    capFindings: [
-      { id: "f1", category: "Critical", description: "Issue 1", severity: "Critical", status: "Open" },
-      { id: "f2", category: "Critical", description: "Issue 2", severity: "Critical", status: "Open" },
-      { id: "f3", category: "Critical", description: "Issue 3", severity: "Critical", status: "Open" },
-    ],
-    remarks: "",
-    createdAt: "2026-04-10",
-    updatedAt: "2026-04-10",
-    contact: "",
-    email: "",
-  },
-  {
-    id: "sa-2",
-    brand: "Sinsay",
-    auditDate: "2026-04-17",
-    factoryName: "Shri Subam Tex",
-    address: "S.F No540/2, Opp. Anbu Illam, Ring Road...",
-    auditorName: "Lead Quality Auditor",
-    auditType: "Initial Audit",
-    grade: "Orange" as any,
-    overallScorePercent: 96.2,
-    sectionScores: buildDefaultSectionScores(),
-    capFindings: [],
-    remarks: "",
-    createdAt: "2026-04-17",
-    updatedAt: "2026-04-17",
-    contact: "",
-    email: "",
-  },
-];
+const DEFAULT_AUDITS: SocialComplianceAudit[] = [];
 
 export function SocialCompliancePage() {
   const [audits, setAudits] = useState<SocialComplianceAudit[]>([]);
@@ -83,19 +43,26 @@ export function SocialCompliancePage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Form fields
-  const [formBrand, setFormBrand] = useState("Sinsay");
+  const [formBrand, setFormBrand] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formFactory, setFormFactory] = useState("");
   const [formAddress, setFormAddress] = useState("");
-  const [formAuditor, setFormAuditor] = useState("Lead Quality Auditor");
-  const [formScore, setFormScore] = useState("90");
-  const [formGrade, setFormGrade] = useState("A");
-  const [formCritical, setFormCritical] = useState("0");
-  const [formTotal, setFormTotal] = useState("17");
+  const [formAuditor, setFormAuditor] = useState("");
+  const [formScore, setFormScore] = useState("");
+  const [formGrade, setFormGrade] = useState("");
+  const [formCritical, setFormCritical] = useState("");
+  const [formTotal, setFormTotal] = useState("");
 
   useEffect(() => {
-    const loaded = loadSocialAudits();
-    setAudits(loaded.length > 0 ? loaded : DEFAULT_AUDITS);
+    async function fetchAudits() {
+      try {
+        const data = await db.socialComplianceAudits.getAll();
+        setAudits(data);
+      } catch {
+        setAudits(loadSocialAudits());
+      }
+    }
+    fetchAudits();
   }, []);
 
   function showToast(msg: string) {

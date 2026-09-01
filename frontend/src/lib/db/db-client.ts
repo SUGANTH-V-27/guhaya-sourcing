@@ -1,5 +1,27 @@
 import { supabase, isSupabaseConfigured } from "./supabase-client";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api";
+
+const TABLE_ENDPOINT_MAP: Record<string, string> = {
+  brands: "/brands",
+  models: "/models",
+  purchase_orders: "/orders",
+  social_compliance_audits: "/audit/social",
+  technical_audits: "/audit/technical",
+  certifications: "/audit/certifications",
+  costing_sheets: "/costing",
+  invoices: "/finance/invoices",
+  factory_ledger_transactions: "/finance/ledger",
+  income_entries: "/finance/income",
+  expense_entries: "/finance/expense",
+  commission_records: "/finance/commissions",
+  staff_members: "/finance/staff",
+  attendance_records: "/finance/attendance",
+  salary_slips: "/finance/salaries",
+  advance_payments: "/finance/advances",
+  company_settings: "/finance/settings",
+};
+
 /**
  * Universal Database Table Client Interface
  */
@@ -13,51 +35,103 @@ export interface IDbTable<T extends { id: string | number }> {
 }
 
 /**
- * Generic Hybrid DB Table Manager:
- * - Uses live Supabase when configured
- * - Uses LocalStorage / In-Memory persistence when in development / offline
+ * Generic live database table manager. It uses the backend API first and a
+ * configured Supabase database as an alternative live connection.
  */
 export class HybridDbTable<T extends { id: string | number }> implements IDbTable<T> {
   private tableName: string;
-  private storageKey: string;
 
   constructor(tableName: string) {
     this.tableName = tableName;
-    this.storageKey = `guhaya_db_${tableName}`;
   }
 
-  private getLocalData(): T[] {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = localStorage.getItem(this.storageKey);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+  private apiError(res: Response): Error & { apiError: true } {
+    const error = new Error(`Backend request failed for ${this.tableName}: HTTP ${res.status}`) as Error & { apiError: true };
+    error.apiError = true;
+    return error;
   }
 
-  private setLocalData(data: T[]): void {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(data));
-    } catch (e) {
-      console.error(`Failed to write local table: ${this.tableName}`, e);
+  private getAuthHeaders(): HeadersInit {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("token") || localStorage.getItem("guhaya_token");
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     }
+    return headers;
   }
 
   async getAll(): Promise<T[]> {
+    // 1. Try Backend REST API
+    const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
+    if (endpoint) {
+      try {
+        const readEndpoint = this.tableName === "income_entries" || this.tableName === "expense_entries"
+          ? "/finance/income-expenses"
+          : endpoint;
+        const res = await fetch(`${API_BASE_URL}${readEndpoint}`, {
+          headers: this.getAuthHeaders(),
+        });
+        if (!res.ok) throw this.apiError(res);
+        if (res.ok) {
+          const json = await res.json();
+          const combined = json?.data;
+          const items = this.tableName === "income_entries"
+            ? combined?.income
+            : this.tableName === "expense_entries"
+              ? combined?.expenses
+              : this.tableName === "company_settings"
+                ? combined ? [combined] : []
+              : combined !== undefined ? combined : json;
+          if (Array.isArray(items)) {
+            return items as T[];
+          }
+        }
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+        // Try the configured live Supabase connection below.
+      }
+    }
+
+    // 2. Try Supabase
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from(this.tableName).select("*");
-        if (!error && data) return data as T[];
+        if (error) throw error;
+        if (data) {
+          return data as T[];
+        }
       } catch (err) {
-        console.warn(`Supabase query fallback for ${this.tableName}:`, err);
+        throw new Error(`Database read failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
-    return this.getLocalData();
+
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async getById(id: string | number): Promise<T | null> {
+    // 1. Try Backend REST API
+    const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
+    if (endpoint) {
+      try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}/${id}`, {
+          headers: this.getAuthHeaders(),
+        });
+        if (!res.ok) throw this.apiError(res);
+        if (res.ok) {
+          const json = await res.json();
+          const item = json?.data !== undefined ? json.data : json;
+          if (item) return item as T;
+        }
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
+    }
+
+    // 2. Try Supabase
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase
@@ -70,8 +144,8 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
         console.warn(`Supabase getById fallback for ${this.tableName}:`, err);
       }
     }
-    const items = this.getLocalData();
-    return items.find((item) => String(item.id) === String(id)) || null;
+
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async query(filterFn: (item: T) => boolean): Promise<T[]> {
@@ -83,6 +157,29 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
     const id = data.id || `rec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const record = { ...data, id } as T;
 
+    // 1. Try Backend REST API
+    const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
+    if (endpoint) {
+      try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(record),
+        });
+        if (!res.ok) throw this.apiError(res);
+        if (res.ok) {
+          const json = await res.json();
+          const inserted = json?.data !== undefined ? json.data : json;
+          if (inserted) {
+            return inserted as T;
+          }
+        }
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
+    }
+
+    // 2. Try Supabase
     if (isSupabaseConfigured) {
       try {
         const { data: inserted, error } = await supabase
@@ -90,19 +187,42 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           .insert(record as any)
           .select()
           .single();
-        if (!error && inserted) return inserted as T;
+        if (error) throw error;
+        if (inserted) {
+          return inserted as T;
+        }
       } catch (err) {
-        console.warn(`Supabase insert fallback for ${this.tableName}:`, err);
+        throw new Error(`Database insert failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    const items = this.getLocalData();
-    const updated = [record, ...items];
-    this.setLocalData(updated);
-    return record;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async update(id: string | number, updates: Partial<T>): Promise<T | null> {
+    // 1. Try Backend REST API
+    const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
+    if (endpoint) {
+      try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}/${id}`, {
+          method: "PUT",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw this.apiError(res);
+        if (res.ok) {
+          const json = await res.json();
+          const updated = json?.data !== undefined ? json.data : json;
+          if (updated) {
+            return updated as T;
+          }
+        }
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+      }
+    }
+
+    // 2. Try Supabase
     if (isSupabaseConfigured) {
       try {
         const { data: updated, error } = await supabase
@@ -111,42 +231,51 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           .eq("id", id)
           .select()
           .single();
-        if (!error && updated) return updated as T;
+        if (error) throw error;
+        if (updated) {
+          return updated as T;
+        }
       } catch (err) {
-        console.warn(`Supabase update fallback for ${this.tableName}:`, err);
+        throw new Error(`Database update failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
       }
     }
 
-    const items = this.getLocalData();
-    let found: T | null = null;
-    const nextItems = items.map((item) => {
-      if (String(item.id) === String(id)) {
-        found = { ...item, ...updates };
-        return found;
-      }
-      return item;
-    });
-
-    if (found) {
-      this.setLocalData(nextItems);
-    }
-    return found;
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 
   async delete(id: string | number): Promise<boolean> {
-    if (isSupabaseConfigured) {
+    // 1. Try Backend REST API
+    const endpoint = TABLE_ENDPOINT_MAP[this.tableName];
+    if (endpoint) {
       try {
-        const { error } = await supabase.from(this.tableName).delete().eq("id", id);
-        if (!error) return true;
-      } catch (err) {
-        console.warn(`Supabase delete fallback for ${this.tableName}:`, err);
+        const res = await fetch(`${API_BASE_URL}${endpoint}/${id}`, {
+          method: "DELETE",
+          headers: this.getAuthHeaders(),
+        });
+        if (res.ok) {
+          return true;
+        }
+        throw this.apiError(res);
+      } catch (err: any) {
+        if (err?.apiError) throw err;
+        throw new Error(`Database delete failed for ${this.tableName}: ${String(err?.message || err)}`);
       }
     }
 
-    const items = this.getLocalData();
-    const filtered = items.filter((item) => String(item.id) !== String(id));
-    this.setLocalData(filtered);
-    return true;
+    // 2. Try Supabase
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from(this.tableName).delete().eq("id", id);
+        if (!error) {
+          return true;
+        }
+        throw error;
+      } catch (err) {
+        throw new Error(`Database delete failed for ${this.tableName}: ${String((err as any)?.message || err)}`);
+      }
+    }
+
+    throw new Error(`No live database connection is configured for ${this.tableName}.`);
   }
 }
 

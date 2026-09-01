@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type CertificationRecord = {
   id: string;
   factoryName: string;
@@ -116,7 +118,7 @@ export function saveCertifications(certs: CertificationRecord[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(certs));
 }
 
-export function addCertification(cert: Omit<CertificationRecord, "id" | "createdAt" | "updatedAt">): CertificationRecord {
+export async function addCertification(cert: Omit<CertificationRecord, "id" | "createdAt" | "updatedAt">): Promise<CertificationRecord> {
   const list = loadCertifications();
   const newCert: CertificationRecord = {
     ...cert,
@@ -124,21 +126,24 @@ export function addCertification(cert: Omit<CertificationRecord, "id" | "created
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  await db.certifications.insert(newCert);
   list.unshift(newCert);
   saveCertifications(list);
   return newCert;
 }
 
-export function updateCertification(id: string, patch: Partial<CertificationRecord>) {
+export async function updateCertification(id: string, patch: Partial<CertificationRecord>) {
   const list = loadCertifications();
   const idx = list.findIndex((c) => c.id === id);
   if (idx >= 0) {
+    await db.certifications.update(id, patch);
     list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
     saveCertifications(list);
   }
 }
 
-export function deleteCertification(id: string) {
+export async function deleteCertification(id: string) {
+  await db.certifications.delete(id);
   const list = loadCertifications().filter((c) => c.id !== id);
   saveCertifications(list);
 }

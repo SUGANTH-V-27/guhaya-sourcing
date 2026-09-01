@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ChevronRight,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandNavTabs } from "@/components/brand/BrandNavTabs";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 import {
   type BrandCapacityAllocation,
   INITIAL_BRAND_CAPACITY,
@@ -25,8 +25,25 @@ export default function BrandCapacityPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: brandId } = React.use(params);
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
   const [capacities, setCapacities] = useState<BrandCapacityAllocation[]>(INITIAL_BRAND_CAPACITY);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!brandId) return;
+      try {
+        const [brandData, capacityData] = await Promise.all([
+          BrandsApi.getById(brandId),
+          BrandsApi.getFactoryCapacities(brandId),
+        ]);
+        if (brandData) setBrand(brandData);
+        if (capacityData && capacityData.length > 0) setCapacities(capacityData);
+      } catch (err) {
+        console.warn("Failed to load capacity data:", err);
+      }
+    }
+    loadData();
+  }, [brandId]);
 
   const totalAllocated = capacities.reduce((sum, c) => sum + c.allocatedPcs, 0);
   const totalMaxCapacity = capacities.reduce((sum, c) => sum + c.totalCapacityPcs, 0);

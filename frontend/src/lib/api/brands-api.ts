@@ -1,4 +1,5 @@
 import { db } from "../db/db-client";
+import { brandService } from "../../../services/brand.service";
 
 export interface BrandEntity {
   id: string;
@@ -37,26 +38,34 @@ export const BrandsApi = {
 
   // Subpages
   async getSummary(brandId: string) {
-    return await db.brandSummaries.query((s) => s.brandId === brandId);
+    return await brandService.getSubpageData(brandId, "summary");
   },
 
   async getTestingStandards(brandId: string) {
-    return await db.testingStandards.query((t) => t.brandId === brandId);
+    return await brandService.getSubpageData(brandId, "standards");
   },
 
   async getBookingTrackers(brandId: string) {
-    return await db.bookingTrackers.query((b) => b.brandId === brandId);
+    return await brandService.getSubpageData(brandId, "booking");
+  },
+
+  async getBookings(brandId: string) {
+    return await brandService.getSubpageData(brandId, "booking");
   },
 
   async getFactoryCapacities(brandId?: string) {
-    return await db.factoryCapacities.getAll();
+    return brandId ? await brandService.getSubpageData(brandId, "capacity") : [];
   },
 
   async getCourierShipments(brandId: string) {
-    return await db.courierShipments.query((c) => c.brandId === brandId);
+    return await brandService.getSubpageData(brandId, "courier");
   },
 
   async getCaprIssues(brandId: string) {
-    return await db.caprIssues.query((c) => c.brandId === brandId);
+    return await brandService.getSubpageData(brandId, "capr");
+  },
+
+  async getCaprRecords(brandId: string) {
+    return await brandService.getSubpageData(brandId, "capr");
   },
 };

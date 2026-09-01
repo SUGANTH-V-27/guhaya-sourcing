@@ -20,31 +20,9 @@ import {
   DEFAULT_TECHNICAL_MODULES,
   type TechnicalAudit,
 } from "@/lib/audit/technical-audit-data";
+import { db } from "@/lib/db/db-client";
 
-const DEFAULT_AUDITS: TechnicalAudit[] = [
-  {
-    id: "ta-1",
-    factoryName: "Shri Subam Tex",
-    brand: "Sinsay",
-    auditDate: "2026-04-17",
-    auditorName: "Senior QA Auditor",
-    location: "S.F No540/2, Opp. Anbu Illam, Ring Road, Thirumurugan Poondi, Tirupur – 641 652",
-    contact: "",
-    workforce: 350,
-    capacity: 15000,
-    categories: "Knitted T-Shirts, Polos, Hoodies",
-    modules: DEFAULT_TECHNICAL_MODULES,
-    findings: [],
-    conclusion: "",
-    grade: "Good",
-    overallScorePercent: 85,
-    available: 40,
-    missing: 23,
-    total: 64,
-    createdAt: "2026-04-17",
-    updatedAt: "2026-04-17",
-  },
-];
+const DEFAULT_AUDITS: TechnicalAudit[] = [];
 
 export function TechnicalAuditPage() {
   const [audits, setAudits] = useState<TechnicalAudit[]>([]);
@@ -54,17 +32,24 @@ export function TechnicalAuditPage() {
 
   // Form
   const [formFactory, setFormFactory] = useState("");
-  const [formBrand, setFormBrand] = useState("Sinsay");
+  const [formBrand, setFormBrand] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formLocation, setFormLocation] = useState("");
-  const [formAuditor, setFormAuditor] = useState("Senior QA Auditor");
-  const [formAvailable, setFormAvailable] = useState("40");
-  const [formMissing, setFormMissing] = useState("0");
-  const [formTotal, setFormTotal] = useState("64");
+  const [formAuditor, setFormAuditor] = useState("");
+  const [formAvailable, setFormAvailable] = useState("");
+  const [formMissing, setFormMissing] = useState("");
+  const [formTotal, setFormTotal] = useState("");
 
   useEffect(() => {
-    const loaded = loadTechnicalAudits();
-    setAudits(loaded.length > 0 ? loaded : DEFAULT_AUDITS);
+    async function fetchAudits() {
+      try {
+        const data = await db.technicalAudits.getAll();
+        setAudits(data);
+      } catch {
+        setAudits(loadTechnicalAudits());
+      }
+    }
+    fetchAudits();
   }, []);
 
   function showToast(msg: string) {
@@ -75,13 +60,13 @@ export function TechnicalAuditPage() {
   function openCreate() {
     setEditingId(null);
     setFormFactory("");
-    setFormBrand("Sinsay");
+    setFormBrand("");
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormLocation("");
-    setFormAuditor("Senior QA Auditor");
-    setFormAvailable("40");
-    setFormMissing("0");
-    setFormTotal("64");
+    setFormAuditor("");
+    setFormAvailable("");
+    setFormMissing("");
+    setFormTotal("");
     setShowModal(true);
   }
 
@@ -110,6 +95,7 @@ export function TechnicalAuditPage() {
       workforce: 350,
       capacity: 15000,
       categories: "",
+      status: "Approved",
       modules: DEFAULT_TECHNICAL_MODULES,
       findings: [],
       conclusion: "",

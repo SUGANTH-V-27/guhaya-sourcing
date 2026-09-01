@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type InvoiceCommissionRow = {
   id: string;
   poId: string | null;
@@ -72,7 +74,26 @@ export function saveInvoices(invoices: InvoiceRecord[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
 }
 
-export function addInvoice(invoice: InvoiceRecord) {
+export async function addInvoice(invoice: InvoiceRecord) {
+  const subtotal = invoice.lineItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const cgstAmount = subtotal * (invoice.cgstPct / 100);
+  const sgstAmount = subtotal * (invoice.sgstPct / 100);
+  await db.invoices.insert({
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    partyName: invoice.invoiceTo?.company || invoice.brandName || "Buyer",
+    partyGstin: invoice.invoiceTo?.gstin || null,
+    partyAddress: invoice.invoiceTo?.address || null,
+    invoiceDate: invoice.date ? new Date(invoice.date) : new Date(),
+    currency: "INR",
+    subtotal,
+    cgstRate: invoice.cgstPct,
+    cgstAmount,
+    sgstRate: invoice.sgstPct,
+    sgstAmount,
+    grandTotal: subtotal + cgstAmount + sgstAmount,
+    notes: invoice.remarks || null,
+  });
   const invoices = loadInvoices();
   invoices.unshift(invoice);
   saveInvoices(invoices);
@@ -86,12 +107,14 @@ export function getInvoiceById(id: string): InvoiceRecord | undefined {
   return loadInvoices().find((inv) => inv.id === id);
 }
 
-export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
+export async function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
   const invoices = loadInvoices();
   const next = invoices.map((inv) => (inv.id === id ? normalizeInvoice({ ...inv, ...patch }) : inv));
+  await db.invoices.update(id, patch);
   saveInvoices(next);
 }
 
-export function deleteInvoice(id: string) {
+export async function deleteInvoice(id: string) {
+  await db.invoices.delete(id);
   saveInvoices(loadInvoices().filter((inv) => inv.id !== id));
 }

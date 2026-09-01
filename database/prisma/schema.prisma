@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -12,6 +13,7 @@ model Profile {
   id        String   @id @default(uuid())
   userId    String?  @unique
   email     String   @unique
+  passwordHash String?
   fullName  String?
   role      String   @default("Merchandiser")
   phone     String?

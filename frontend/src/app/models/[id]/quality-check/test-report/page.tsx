@@ -25,7 +25,7 @@ export default function LabTestReportPage({
 }) {
   const { id: modelId } = React.use(params);
   const [reports, setReports] = useState<LabTestReport[]>(INITIAL_LAB_TESTS);
-  const [selectedReport, setSelectedReport] = useState<LabTestReport | null>(INITIAL_LAB_TESTS[0]);
+  const [selectedReport, setSelectedReport] = useState<LabTestReport | null>(null);
 
   return (
     <SourcingShell

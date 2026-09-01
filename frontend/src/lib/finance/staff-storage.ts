@@ -1,3 +1,5 @@
+import financeService from "@/services/finance.service";
+
 export type StaffMember = {
   id: string;
   name: string;
@@ -7,50 +9,29 @@ export type StaffMember = {
   fuelAllowance: boolean;
 };
 
-const STORAGE_KEY = "guhaya-staff";
-
-export const DEFAULT_STAFF: StaffMember[] = [
-  {
-    id: "e1",
-    name: "Hariharan",
-    role: "Merchandiser",
-    fixedSalary: 30000,
-    vehicleMileage: 15,
-    fuelAllowance: true,
-  },
-  {
-    id: "e2",
-    name: "Santhosh",
-    role: "Quality Controller",
-    fixedSalary: 28000,
-    vehicleMileage: 18,
-    fuelAllowance: true,
-  },
-  {
-    id: "e3",
-    name: "Karthickraja",
-    role: "Quality Controller",
-    fixedSalary: 26000,
-    vehicleMileage: 16,
-    fuelAllowance: false,
-  },
-];
+export const DEFAULT_STAFF: StaffMember[] = [];
 
 export function loadStaff(): StaffMember[] {
-  if (typeof window === "undefined") return DEFAULT_STAFF;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StaffMember[]) : DEFAULT_STAFF;
-  } catch {
-    return DEFAULT_STAFF;
-  }
+  throw new Error("Staff records must be loaded asynchronously from the database.");
 }
 
-export function saveStaff(staff: StaffMember[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(staff));
+export async function loadStaffAsync(): Promise<StaffMember[]> {
+  const apiData = await financeService.getStaff();
+  return apiData.map((item: any) => ({
+    id: item.id,
+    name: item.fullName || item.name || "Staff",
+    role: item.designation || item.role || "Staff",
+    fixedSalary: Number(item.baseSalary || item.fixedSalary) || 0,
+    vehicleMileage: Number(item.vehicleMileage) || 15,
+    fuelAllowance: Boolean(item.fuelAllowance),
+  }));
+}
+
+export async function deleteStaff(id: string): Promise<boolean> {
+  await financeService.deleteStaff(id);
+  return true;
 }
 
 export function getMonthlySalaryTotal(): number {
-  return loadStaff().reduce((sum, member) => sum + member.fixedSalary, 0);
+  throw new Error("Staff records must be loaded asynchronously from the database.");
 }

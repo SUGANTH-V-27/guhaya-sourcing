@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronRight, Save, Trash2, X } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
 
 export default function EditBrandPage({
   params,
@@ -14,20 +14,56 @@ export default function EditBrandPage({
 }) {
   const { id: brandId } = React.use(params);
   const router = useRouter();
-  const brand = brands.find((b) => b.id === brandId) || brands[0];
+  const [brand, setBrand] = useState<BrandEntity | null>(null);
 
-  const [brandName, setBrandName] = useState(brand?.name || "");
+  const [brandName, setBrandName] = useState("");
   const [buyerCountry, setBuyerCountry] = useState("United Kingdom");
   const [primaryContact, setPrimaryContact] = useState("Sourcing Director");
   const [email, setEmail] = useState("sourcing@brand.com");
   const [description, setDescription] = useState(
     "Premium streetwear apparel collection focusing on heavyweight cotton knits & sustainable trims."
   );
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleSave(e: React.FormEvent) {
+  useEffect(() => {
+    async function loadBrand() {
+      if (!brandId) return;
+      try {
+        const data = await BrandsApi.getById(brandId);
+        if (data) {
+          setBrand(data);
+          setBrandName(data.name);
+          if (data.country) setBuyerCountry(data.country);
+          if (data.primaryContact) setPrimaryContact(data.primaryContact);
+          if (data.email) setEmail(data.email);
+          if (data.description) setDescription(data.description);
+        }
+      } catch (err) {
+        console.warn("Failed to load brand in edit page:", err);
+      }
+    }
+    loadBrand();
+  }, [brandId]);
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    // Persist and navigate back
-    router.push(`/brands/${brandId}`);
+    if (!brandId) return;
+    setIsSaving(true);
+    try {
+      await BrandsApi.update(brandId, {
+        name: brandName.trim(),
+        country: buyerCountry,
+        primaryContact,
+        email,
+        description,
+      });
+      router.push(`/brands/${brandId}`);
+    } catch (err) {
+      console.error("Failed to update brand:", err);
+      router.push(`/brands/${brandId}`);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -133,9 +169,10 @@ export default function EditBrandPage({
             </Link>
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-xl bg-teal-500 px-6 py-2.5 text-xs font-bold text-black hover:bg-teal-400 transition shadow-lg"
+              disabled={isSaving}
+              className="flex items-center gap-2 rounded-xl bg-teal-500 px-6 py-2.5 text-xs font-bold text-black hover:bg-teal-400 transition shadow-lg disabled:opacity-50"
             >
-              <Save size={15} /> Save Brand
+              <Save size={15} /> {isSaving ? "Saving..." : "Save Brand"}
             </button>
           </div>
         </form>

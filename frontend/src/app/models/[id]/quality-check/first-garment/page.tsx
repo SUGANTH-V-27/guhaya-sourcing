@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 type StatusVal = "OK" | "NOT OK" | "N/A";
 type YesNoVal = "YES" | "NO";
@@ -44,11 +45,11 @@ export default function FirstGarmentOutputPage({
   const { id: modelId } = React.use(params);
 
   // ── Header Details State ───────────────────────────────────────────────────
-  const [styleCode] = useState(modelId || "5906482949644");
-  const [orderNo] = useState("PI_NF_001");
-  const [factory] = useState("NANDHI FABRICS");
+  const [styleCode, setStyleCode] = useState(modelId || "");
+  const [orderNo, setOrderNo] = useState("");
+  const [factory, setFactory] = useState("");
   const [reviewDate, setReviewDate] = useState(new Date().toISOString().split("T")[0]);
-  const [reviewedBy, setReviewedBy] = useState("Suganth V (Quality Lead)");
+  const [reviewedBy, setReviewedBy] = useState("");
 
   // ── Element Inspection Rows ────────────────────────────────────────────────
   const [rows, setRows] = useState<ElementRow[]>([
@@ -160,6 +161,20 @@ export default function FirstGarmentOutputPage({
 
   const [isSaved, setIsSaved] = useState(false);
 
+  React.useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "first-garment")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (Array.isArray(data.rows)) setRows(data.rows);
+          if (Array.isArray(data.keyPoints)) setKeyPoints(data.keyPoints);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleStatusChange(rowId: string, status: StatusVal) {
     setRows((prev) =>
@@ -196,7 +211,20 @@ export default function FirstGarmentOutputPage({
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `first-garment-${Date.now()}`,
+        modelId,
+        inspectionType: "first-garment",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ rows, keyPoints }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save first garment report.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

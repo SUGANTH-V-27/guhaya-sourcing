@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -24,6 +24,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface DefectRow {
   id: string;
@@ -89,23 +90,26 @@ export default function MidlineInspectionPage({
   const [inspections, setInspections] = useState<MidlineInspectionReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "midline-inspection")
+      .then((records) => {
+        setInspections(records.flatMap((record: any) => {
+          try { return [JSON.parse(record.remarks) as MidlineInspectionReport]; } catch { return []; }
+        }));
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Form State for New/Edit Mid-Line Inspection ────────────────────────────
-  const [styleNumber] = useState(modelId || "5906482949644");
-  const [poNumber] = useState("PI_NF_001");
-  const [orderQty] = useState(5760);
-  const [factory] = useState("NANDHI FABRICS");
-  const [midlineDate, setMidlineDate] = useState("2026-08-23");
+  const [styleNumber, setStyleNumber] = useState(modelId || "");
+  const [poNumber, setPoNumber] = useState("");
+  const [orderQty, setOrderQty] = useState<number | string>("");
+  const [factory, setFactory] = useState("");
+  const [midlineDate, setMidlineDate] = useState(new Date().toISOString().split("T")[0]);
   const [outputQty, setOutputQty] = useState<string>("");
   const [packedQty, setPackedQty] = useState<string>("");
 
-  const [defects, setDefects] = useState<DefectRow[]>([
-    { id: "d-1", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-2", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-3", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-4", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-5", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-6", description: "", critical: 0, major: 0, minor: 0 },
-  ]);
+  const [defects, setDefects] = useState<DefectRow[]>([]);
 
   // ── Packing Checklist State ────────────────────────────────────────────────
   const [packingList, setPackingList] = useState<PackingCheckRow[]>([
@@ -186,12 +190,12 @@ export default function MidlineInspectionPage({
     ]);
   }
 
-  function handleSaveInspection() {
+  async function handleSaveInspection() {
     const newReport: MidlineInspectionReport = {
       id: `mid-${Date.now()}`,
       styleNumber,
       poNumber,
-      orderQty,
+      orderQty: Number(orderQty) || 0,
       factory,
       midlineDate,
       outputQty: outputNumber,
@@ -211,15 +215,39 @@ export default function MidlineInspectionPage({
       createdAt: new Date().toISOString().split("T")[0],
     };
 
+    try {
+      await ModelsApi.saveQcInspection({
+        id: newReport.id,
+        modelId,
+        inspectionType: "midline-inspection",
+        factory,
+        inspectionDate: midlineDate,
+        totalOrderQty: newReport.orderQty,
+        sampleSize: newReport.sampleSize,
+        criticalDefects: newReport.totalCritical,
+        majorDefects: newReport.totalMajor,
+        minorDefects: newReport.totalMinor,
+        result: newReport.result,
+        remarks: JSON.stringify(newReport),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save mid-line inspection.");
+      return;
+    }
     setInspections([newReport, ...inspections]);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
     setViewMode("list");
   }
 
-  function handleDeleteInspection(id: string) {
+  async function handleDeleteInspection(id: string) {
     if (confirm("Delete this mid-line inspection?")) {
-      setInspections(inspections.filter((i) => i.id !== id));
+      try {
+        await ModelsApi.deleteQcInspection(modelId, id);
+        setInspections((current) => current.filter((i) => i.id !== id));
+      } catch (error: any) {
+        alert(error?.message || "Failed to delete mid-line inspection.");
+      }
     }
   }
 

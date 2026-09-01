@@ -267,7 +267,7 @@ export default function CreateSocialCompliancePage() {
   const [activeTab, setActiveTab] = useState<TabId>("info");
 
   // ── Audit Info form ────────────────────────────────────────────────────────
-  const [brand, setBrand] = useState("Sinsay");
+  const [brand, setBrand] = useState("");
   const [factoryName, setFactoryName] = useState("");
   const [factoryAddress, setFactoryAddress] = useState("");
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split("T")[0]);
@@ -439,7 +439,7 @@ export default function CreateSocialCompliancePage() {
     return { label: "Red", color: "bg-red-500 text-white" };
   }
 
-  function handleSave() {
+  async function handleSave() {
     const audit: SocialComplianceAudit = {
       id: `sca-${Date.now()}`,
       factoryName,
@@ -473,8 +473,12 @@ export default function CreateSocialCompliancePage() {
       address: factoryAddress,
     } as any;
 
-    saveOrUpdateSocialAudit(audit);
-    router.push("/audit/social-compliance");
+    try {
+      await saveOrUpdateSocialAudit(audit);
+      router.push("/audit/social-compliance");
+    } catch (error: any) {
+      alert(error?.message || "Failed to save social compliance audit.");
+    }
   }
 
   const TABS: { id: TabId; label: string }[] = [
@@ -1105,7 +1109,7 @@ export default function CreateSocialCompliancePage() {
                 </div>
               ) : (
                 <p className="text-center text-xs text-gray-500 py-6">
-                  No findings yet. Click "Add Finding" to add SIR items.
+                  No findings yet. Click &quot;Add Finding&quot; to add SIR items.
                 </p>
               )}
             </div>

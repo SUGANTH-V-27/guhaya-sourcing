@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Banknote,
   Calendar,
@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import financeService from "../../../../services/finance.service";
 
 interface StaffSalaryRecord {
   id: string;
@@ -40,82 +41,46 @@ interface StaffSalaryRecord {
   month: string;
 }
 
-const INITIAL_STAFF: StaffSalaryRecord[] = [
-  {
-    id: "sal-001",
-    employeeId: "EMP-0101",
-    name: "P. Vignesh",
-    designation: "Senior Sourcing Merchandiser",
-    department: "Merchandising",
-    basicSalary: 45000,
-    hra: 15000,
-    conveyance: 5000,
-    overtimeHours: 12,
-    overtimePay: 4500,
-    advanceDeduction: 5000,
-    pfDeduction: 3600,
-    netPay: 60900,
-    paymentStatus: "Paid",
-    month: "August 2026",
-  },
-  {
-    id: "sal-002",
-    employeeId: "EMP-0102",
-    name: "S. Murugan",
-    designation: "Lead Quality Auditor",
-    department: "Quality Control",
-    basicSalary: 40000,
-    hra: 12000,
-    conveyance: 4000,
-    overtimeHours: 20,
-    overtimePay: 6000,
-    advanceDeduction: 0,
-    pfDeduction: 3200,
-    netPay: 58800,
-    paymentStatus: "Paid",
-    month: "August 2026",
-  },
-  {
-    id: "sal-003",
-    employeeId: "EMP-0103",
-    name: "K. Rajagopal",
-    designation: "Pattern Master & CAD Lead",
-    department: "Sourcing / CAD",
-    basicSalary: 38000,
-    hra: 10000,
-    conveyance: 3000,
-    overtimeHours: 8,
-    overtimePay: 2400,
-    advanceDeduction: 2000,
-    pfDeduction: 3040,
-    netPay: 48360,
-    paymentStatus: "Pending",
-    month: "August 2026",
-  },
-  {
-    id: "sal-004",
-    employeeId: "EMP-0104",
-    name: "R. Kavitha",
-    designation: "Floor Quality Inspector",
-    department: "Quality Control",
-    basicSalary: 28000,
-    hra: 8000,
-    conveyance: 2500,
-    overtimeHours: 16,
-    overtimePay: 3600,
-    advanceDeduction: 0,
-    pfDeduction: 2240,
-    netPay: 39860,
-    paymentStatus: "Pending",
-    month: "August 2026",
-  },
-];
+const INITIAL_STAFF: StaffSalaryRecord[] = [];
 
 export default function SalaryManagementPage() {
-  const [records, setRecords] = useState<StaffSalaryRecord[]>(INITIAL_STAFF);
+  const [records, setRecords] = useState<StaffSalaryRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
+  );
   const [selectedSlip, setSelectedSlip] = useState<StaffSalaryRecord | null>(null);
+
+  useEffect(() => {
+    async function loadSalaries() {
+      try {
+        const data = await financeService.getSalaries();
+        if (data && data.length > 0) {
+          const mapped = data.map((item: any) => ({
+            id: item.id,
+            name: item.fullName || item.name || "Staff",
+            employeeId: item.staffCode || item.staffId || "EMP",
+            designation: item.designation || "Staff",
+            department: item.department || "Merchandising",
+            basicSalary: Number(item.basicPay) || 0,
+            hra: Number(item.hra) || 0,
+            conveyance: Number(item.allowances) || 0,
+            overtimeHours: Number(item.overtimeHours) || 0,
+            overtimePay: Number(item.overtimePay) || 0,
+            advanceDeduction: Number(item.advanceRecovery) || 0,
+            pfDeduction: Number(item.pfDeduction) || 0,
+            netPay: Number(item.netSalary) || 0,
+            paymentStatus: (item.paymentStatus || "Paid") as any,
+            month: item.salaryMonth || new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+          }));
+          setRecords(mapped);
+        }
+      } catch (err) {
+        console.warn("Failed to load salaries:", err);
+      }
+    }
+    loadSalaries();
+  }, []);
 
   const filteredRecords = records.filter(
     (r) =>

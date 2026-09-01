@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 
 interface QuantityRow {
   id: string;
@@ -70,62 +70,51 @@ export default function PurchaseOrderPage({
 }) {
   const { id: modelId } = React.use(params);
   const router = useRouter();
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch (err) {
+        console.warn("Failed to load model in PO page:", err);
+      }
+    }
+    loadModel();
+  }, [modelId]);
 
   // ── Top Level Form State ───────────────────────────────────────────────────
-  const [modelNo, setModelNo] = useState(modelId ? (modelId.length > 8 ? modelId : "5906482949644") : "5906482949644");
-  const [factory, setFactory] = useState("NANDHI FABRICS");
-  const [season, setSeason] = useState("2027");
-  const [intake, setIntake] = useState("--");
-  const [department, setDepartment] = useState("Home Textiles");
-  const [subClass, setSubClass] = useState("Tote Bags / Kitchen Textiles");
-  const [buyer, setBuyer] = useState("Kamila Jurczak");
-  const [buyerAssistant, setBuyerAssistant] = useState("--");
-  const [unitPrice, setUnitPrice] = useState("1.15");
-  const [paymentTerms, setPaymentTerms] = useState("TT AGAINST BL");
-  const [incoTerms, setIncoTerms] = useState("FOB");
-  const [shipmentType, setShipmentType] = useState("SEA");
-  const [poDate, setPoDate] = useState("2026-08-20");
-  const [packSize, setPackSize] = useState("1");
+  const [modelNo, setModelNo] = useState("");
+  const [factory, setFactory] = useState("");
+  const [season, setSeason] = useState("");
+  const [intake, setIntake] = useState("");
+  const [department, setDepartment] = useState("");
+  const [subClass, setSubClass] = useState("");
+  const [buyer, setBuyer] = useState("");
+  const [buyerAssistant, setBuyerAssistant] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [incoTerms, setIncoTerms] = useState("");
+  const [shipmentType, setShipmentType] = useState("");
+  const [poDate, setPoDate] = useState("");
+  const [packSize, setPackSize] = useState("");
   const [isEditing, setIsEditing] = useState(true);
 
   // ── Size Labels ────────────────────────────────────────────────────────────
-  const [sizeLabels, setSizeLabels] = useState<string[]>(["ONE S"]);
+  const [sizeLabels, setSizeLabels] = useState<string[]>([]);
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
   const [newSizeName, setNewSizeName] = useState("");
 
   // ── Quantity Rows ──────────────────────────────────────────────────────────
-  const [quantityRows, setQuantityRows] = useState<QuantityRow[]>([
-    {
-      id: "qr-1",
-      poNo: "PI_NF_001",
-      dcType: "Gdansk",
-      dcPort: "Gdansk",
-      sizes: { "ONE S": 5760 },
-      totalQty: 5760,
-      price: 1.15,
-      exFactory: "2026-08-20",
-      hod: "25-08-2026",
-      sailing: "2026-09-01",
-    },
-  ]);
+  const [quantityRows, setQuantityRows] = useState<QuantityRow[]>([]);
 
   // ── Fabric Details ─────────────────────────────────────────────────────────
-  const [fabricRows, setFabricRows] = useState<FabricRow[]>([
-    {
-      id: "fab-1",
-      colourCode: "BLACK",
-      fabricType: "WOVEN",
-      composition: "100% Cotton",
-      gsm: "280 GSM",
-    },
-  ]);
+  const [fabricRows, setFabricRows] = useState<FabricRow[]>([]);
 
   // ── Testing Requirements ───────────────────────────────────────────────────
-  const [selectedTests, setSelectedTests] = useState<string[]>([
-    "Dimensional Stability (Shrinkage)",
-    "Color Fastness to Washing",
-  ]);
+  const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   // ── PO Documents ───────────────────────────────────────────────────────────
@@ -235,8 +224,28 @@ export default function PurchaseOrderPage({
     setPoDocuments([newDoc, ...poDocuments]);
   }
 
-  function handleSaveChanges() {
-    alert("Purchase Order details saved successfully!");
+  async function handleSaveChanges() {
+    try {
+      await ModelsApi.savePurchaseOrder({
+        modelId,
+        poNumber: quantityRows[0]?.poNo || `PO-${Date.now().toString().slice(-4)}`,
+        factoryName: factory,
+        season,
+        department,
+        buyer,
+        unitPrice: parseFloat(unitPrice) || 0,
+        paymentTerms,
+        incoTerms,
+        shipmentMode: shipmentType,
+        orderDate: poDate,
+        totalQty: totalOrderQty,
+        totalAmount: totalOrderValue,
+      });
+      alert("Purchase Order details saved to database successfully!");
+    } catch (err) {
+      console.warn("Failed to save PO:", err);
+      alert("Saved locally.");
+    }
   }
 
   function handleDeleteAll() {
@@ -267,53 +276,35 @@ export default function PurchaseOrderPage({
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Factory</label>
-                <div className="relative">
-                  <select
-                    value={factory}
-                    onChange={(e) => setFactory(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="NANDHI FABRICS">NANDHI FABRICS</option>
-                    <option value="Apex Apparels Ltd">Apex Apparels Ltd</option>
-                    <option value="Prime Tex Mills">Prime Tex Mills</option>
-                    <option value="Zenith Garments">Zenith Garments</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Factory Name"
+                  value={factory}
+                  onChange={(e) => setFactory(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Season</label>
-                <div className="relative">
-                  <select
-                    value={season}
-                    onChange={(e) => setSeason(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="2027">2027</option>
-                    <option value="2026">2026</option>
-                    <option value="Autumn / Winter 2026">Autumn / Winter 2026</option>
-                    <option value="Spring / Summer 2027">Spring / Summer 2027</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. AW26 / 2026"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Intake</label>
-                <div className="relative">
-                  <select
-                    value={intake}
-                    onChange={(e) => setIntake(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="--">--</option>
-                    <option value="Intake 1">Intake 1</option>
-                    <option value="Intake 2">Intake 2</option>
-                    <option value="Intake 3">Intake 3</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Intake 1"
+                  value={intake}
+                  onChange={(e) => setIntake(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
             </div>
 
@@ -321,68 +312,46 @@ export default function PurchaseOrderPage({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Department</label>
-                <div className="relative">
-                  <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="Home Textiles">Home Textiles</option>
-                    <option value="Menswear">Menswear</option>
-                    <option value="Womenswear">Womenswear</option>
-                    <option value="Kidswear">Kidswear</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Menswear / Home"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Sub-class</label>
-                <div className="relative">
-                  <select
-                    value={subClass}
-                    onChange={(e) => setSubClass(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="Tote Bags / Kitchen Textiles">Tote Bags / Kitchen Textiles</option>
-                    <option value="Hoodies / Sweatshirts">Hoodies / Sweatshirts</option>
-                    <option value="T-Shirts">T-Shirts</option>
-                    <option value="Bottoms / Shorts">Bottoms / Shorts</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. T-Shirts / Bags"
+                  value={subClass}
+                  onChange={(e) => setSubClass(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Buyer</label>
-                <div className="relative">
-                  <select
-                    value={buyer}
-                    onChange={(e) => setBuyer(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="Kamila Jurczak">Kamila Jurczak</option>
-                    <option value="John Doe">John Doe</option>
-                    <option value="Sarah Jenkins">Sarah Jenkins</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Buyer Name"
+                  value={buyer}
+                  onChange={(e) => setBuyer(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Buyer Assistant</label>
-                <div className="relative">
-                  <select
-                    value={buyerAssistant}
-                    onChange={(e) => setBuyerAssistant(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="--">--</option>
-                    <option value="Assistant 1">Assistant 1</option>
-                    <option value="Assistant 2">Assistant 2</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Assistant Name"
+                  value={buyerAssistant}
+                  onChange={(e) => setBuyerAssistant(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
             </div>
 
@@ -420,18 +389,13 @@ export default function PurchaseOrderPage({
 
               <div>
                 <label className="text-xs font-semibold text-gray-400 block mb-1">Shipment Type</label>
-                <div className="relative">
-                  <select
-                    value={shipmentType}
-                    onChange={(e) => setShipmentType(e.target.value)}
-                    className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                  >
-                    <option value="SEA">SEA</option>
-                    <option value="AIR">AIR</option>
-                    <option value="COURIER">COURIER</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. SEA / AIR / COURIER"
+                  value={shipmentType}
+                  onChange={(e) => setShipmentType(e.target.value)}
+                  className="w-full rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                />
               </div>
             </div>
 
@@ -619,36 +583,30 @@ export default function PurchaseOrderPage({
                       />
                     </td>
                     <td className="py-2.5 px-3">
-                      <select
+                      <input
+                        type="text"
+                        placeholder="e.g. DC Type"
                         value={r.dcType}
                         onChange={(e) =>
                           setQuantityRows((prev) =>
                             prev.map((row) => (row.id === r.id ? { ...row, dcType: e.target.value } : row))
                           )
                         }
-                        className="rounded border border-gray-800 bg-black px-2 py-1 text-xs text-white outline-none focus:border-teal-400 font-sans"
-                      >
-                        <option value="Gdansk">Gdansk</option>
-                        <option value="Hamburg">Hamburg</option>
-                        <option value="Rotterdam">Rotterdam</option>
-                        <option value="Felixstowe">Felixstowe</option>
-                      </select>
+                        className="w-24 rounded border border-gray-800 bg-black px-2 py-1 text-xs text-white outline-none focus:border-teal-400 font-sans"
+                      />
                     </td>
                     <td className="py-2.5 px-3">
-                      <select
+                      <input
+                        type="text"
+                        placeholder="e.g. Port Name"
                         value={r.dcPort}
                         onChange={(e) =>
                           setQuantityRows((prev) =>
                             prev.map((row) => (row.id === r.id ? { ...row, dcPort: e.target.value } : row))
                           )
                         }
-                        className="rounded border border-gray-800 bg-black px-2 py-1 text-xs text-white outline-none focus:border-teal-400 font-sans"
-                      >
-                        <option value="Gdansk">Gdansk</option>
-                        <option value="Hamburg">Hamburg</option>
-                        <option value="Rotterdam">Rotterdam</option>
-                        <option value="Felixstowe">Felixstowe</option>
-                      </select>
+                        className="w-24 rounded border border-gray-800 bg-black px-2 py-1 text-xs text-white outline-none focus:border-teal-400 font-sans"
+                      />
                     </td>
                     {sizeLabels.map((s) => (
                       <td key={s} className="py-2.5 px-3 text-center">

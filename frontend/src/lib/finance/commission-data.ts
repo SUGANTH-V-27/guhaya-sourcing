@@ -32,49 +32,11 @@ export type FactoryRate = {
   commissionPct: number;
 };
 
-export const COMMISSION_BRANDS = [
-  { id: "soxo", name: "SOXO" },
-  { id: "sinsay", name: "Sinsay" },
-] as const;
+export const COMMISSION_BRANDS: { id: string; name: string }[] = [];
 
-export const DEFAULT_FACTORY_RATES: FactoryRate[] = [
-  { id: "fr1", factory: "M.R.S. Garments", commissionPct: 2 },
-  { id: "fr2", factory: "Goodwill Exports", commissionPct: 2 },
-  { id: "fr3", factory: "KRK Creationss", commissionPct: 2 },
-  { id: "fr4", factory: "Sunrise Apparels", commissionPct: 2.5 },
-];
+export const DEFAULT_FACTORY_RATES: FactoryRate[] = [];
 
-export const FACTORY_DETAILS: Record<string, FactoryDetail> = {
-  "Goodwill Exports": {
-    name: "Goodwill Exports",
-    address:
-      "8/1390 L1-L6, SIDCO Industrial Estate, Thirumullaivoyal, Chennai - 600062, Tamil Nadu",
-    gstin: "33ADRFS1757N1ZD",
-    state: "TAMILNADU",
-    code: "33",
-  },
-  "M.R.S. Garments": {
-    name: "M.R.S. Garments",
-    address: "12/45, Avinashi Road, Tiruppur - 641602, Tamil Nadu",
-    gstin: "33AABCM1234A1Z5",
-    state: "TAMILNADU",
-    code: "33",
-  },
-  "KRK Creationss": {
-    name: "KRK Creationss",
-    address: "Plot 22, Erode Textile Park, Erode - 638001, Tamil Nadu",
-    gstin: "33AAICK5678B2Z6",
-    state: "TAMILNADU",
-    code: "33",
-  },
-  "Sunrise Apparels": {
-    name: "Sunrise Apparels",
-    address: "SF No. 88, Karur Main Road, Namakkal - 637001, Tamil Nadu",
-    gstin: "33AAFSU9012C3Z7",
-    state: "TAMILNADU",
-    code: "33",
-  },
-};
+export const FACTORY_DETAILS: Record<string, FactoryDetail> = {};
 
 export function getFactoryDetail(factoryName: string): FactoryDetail {
   return (

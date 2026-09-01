@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -29,7 +29,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 type ResultStatus = "PASSED" | "FAILED" | "INCONCLUSIVE";
 
@@ -67,45 +68,89 @@ export default function FinalInspectionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: modelId } = React.use(params);
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch {}
+    }
+    loadModel();
+  }, [modelId]);
+
+  useEffect(() => {
+    if (!modelId) return;
+    ModelsApi.getQcInspections(modelId, "final-inspection")
+      .then((records) => {
+        const hydrated = records.map((record: any) => {
+          try {
+            return JSON.parse(record.remarks) as FinalInspectionReport;
+          } catch {
+            return {
+              id: record.id,
+              modelCode: modelId,
+              selectedPos: [],
+              brand: "",
+              vendorName: record.factoryName || "",
+              factoryAddress: "",
+              department: "",
+              productDesc: "",
+              approvedSample: "",
+              fabric: "",
+              gsm: "",
+              inspectionDate: record.inspectionDate || "",
+              inspectorName: record.inspectorName || "",
+              overallConclusion: record.result === "PASS" ? "PASS" : "FAIL",
+              sections: [],
+              stylePhotos: record.photos || [],
+              createdAt: record.createdAt || "",
+            };
+          }
+        });
+        setReports(hydrated);
+      })
+      .catch((error: any) => setSaveError(error?.message || "Failed to load inspection reports."));
+  }, [modelId]);
 
   // ── Mode: "list" | "create" ────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [reports, setReports] = useState<FinalInspectionReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── PO Selection Pop-up Modal State ────────────────────────────────────────
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
-  const [availablePos] = useState([
-    { poNo: "PI_NF_001", channel: "Retail", orderQty: 5760 },
-  ]);
-  const [selectedPos, setSelectedPos] = useState<string[]>(["PI_NF_001"]);
+  const [availablePos, setAvailablePos] = useState<{ poNo: string; channel: string; orderQty: number }[]>([]);
+  const [selectedPos, setSelectedPos] = useState<string[]>([]);
 
   // ── Form State for New Final Inspection ────────────────────────────────────
-  const [brand] = useState("SOXO");
-  const [modelCode] = useState(modelId || "5906482949644");
-  const [department] = useState("Home Textiles");
-  const [productDesc] = useState("CHAOS Tote Bag");
-  const [approvedSample, setApprovedSample] = useState("Available");
+  const [brand, setBrand] = useState("");
+  const [modelCode, setModelCode] = useState(modelId || "");
+  const [department, setDepartment] = useState("");
+  const [productDesc, setProductDesc] = useState("");
+  const [approvedSample, setApprovedSample] = useState("");
 
-  const [vendorName] = useState("NANDHI FABRICS");
-  const [factoryAddress] = useState("34- KAMARAJAPURAM (EAST), KARUR -639002, (TN) INDIA");
-  const [fabric] = useState("100% Cotton ; WOVEN");
-  const [gsm] = useState("280 GSM");
-  const [inspectionDate, setInspectionDate] = useState("2026-08-23");
-  const [inspectorName, setInspectorName] = useState("Suganth V (Lead Auditor)");
+  const [vendorName, setVendorName] = useState("");
+  const [factoryAddress, setFactoryAddress] = useState("");
+  const [fabric, setFabric] = useState("");
+  const [gsm, setGsm] = useState("");
+  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [inspectorName, setInspectorName] = useState("");
 
   const [overallConclusion, setOverallConclusion] = useState<"PASS" | "FAIL">("PASS");
 
   // ── 7 Inspection Result Summary Modules ────────────────────────────────────
   const [sections, setSections] = useState<ChecklistSection[]>([
-    { key: "qty", title: "A. Quantity", status: "PASSED", notes: "100% carton count and 5,760 pcs verified." },
-    { key: "packing", title: "B. Packing Audit – Retail", status: "PASSED", notes: "Barcodes scanned 100% readable." },
-    { key: "conformity", title: "C. Product Conformity", status: "PASSED", notes: "Print sharpness and color match approved standard." },
-    { key: "labeling", title: "D. Labeling & Trims", status: "PASSED", notes: "Wash care and fiber composition accurate." },
-    { key: "gsm", title: "E. GSM", status: "PASSED", notes: "Evaluated 280 GSM (Tolerance: ±3%)." },
-    { key: "aql", title: "F. AQL", status: "PASSED", notes: "AQL 2.5 Major: 0 found (Max 7), Minor: 2 found (Max 10)." },
-    { key: "measurement", title: "G. Measurement", status: "PASSED", notes: "All POM measurements within tolerance." },
+    { key: "qty", title: "A. Quantity", status: "PASSED", notes: "" },
+    { key: "packing", title: "B. Packing Audit – Retail", status: "PASSED", notes: "" },
+    { key: "conformity", title: "C. Product Conformity", status: "PASSED", notes: "" },
+    { key: "labeling", title: "D. Labeling & Trims", status: "PASSED", notes: "" },
+    { key: "gsm", title: "E. GSM", status: "PASSED", notes: "" },
+    { key: "aql", title: "F. AQL", status: "PASSED", notes: "" },
+    { key: "measurement", title: "G. Measurement", status: "PASSED", notes: "" },
   ]);
 
   // ── Style Pictures State ───────────────────────────────────────────────────
@@ -137,14 +182,18 @@ export default function FinalInspectionPage({
     );
   }
 
-  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setStylePhotos([...stylePhotos, url]);
+    try {
+      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      setStylePhotos((current) => [...current, url]);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload inspection photo.");
+    }
   }
 
-  function handleSaveReport() {
+  async function handleSaveReport() {
     const newReport: FinalInspectionReport = {
       id: `final-${Date.now()}`,
       modelCode,
@@ -165,15 +214,36 @@ export default function FinalInspectionPage({
       createdAt: new Date().toISOString().split("T")[0],
     };
 
-    setReports([newReport, ...reports]);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-    setViewMode("list");
+    setSaveError(null);
+    try {
+      await ModelsApi.saveQcInspection({
+        id: newReport.id,
+        modelId,
+        inspectionType: "final-inspection",
+        factoryName: vendorName,
+        inspectorName,
+        inspectionDate,
+        result: overallConclusion,
+        remarks: sections.map((section) => `${section.title}: ${section.status}${section.notes ? ` - ${section.notes}` : ""}`).join("; "),
+        photos: stylePhotos,
+      });
+      setReports([newReport, ...reports]);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+      setViewMode("list");
+    } catch (error: any) {
+      setSaveError(error?.message || "Failed to save final inspection report.");
+    }
   }
 
-  function handleDeleteReport(id: string) {
+  async function handleDeleteReport(id: string) {
     if (confirm("Delete this final inspection report?")) {
-      setReports(reports.filter((r) => r.id !== id));
+      try {
+        await ModelsApi.deleteQcInspection(modelId, id);
+        setReports((current) => current.filter((r) => r.id !== id));
+      } catch (error: any) {
+        setSaveError(error?.message || "Failed to delete final inspection report.");
+      }
     }
   }
 
@@ -187,6 +257,11 @@ export default function FinalInspectionPage({
             <button onClick={() => setIsSaved(false)} className="text-teal-400 hover:text-white">
               ✕
             </button>
+          </div>
+        )}
+        {saveError && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">
+            {saveError}
           </div>
         )}
 

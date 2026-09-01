@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,7 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { models } from "@/lib/mock-data";
+import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface ArtworkRow {
   id: string;
@@ -23,6 +24,7 @@ interface ArtworkRow {
   receivedDate: string;
   fileName?: string;
   fileSize?: string;
+  fileUrl?: string;
 }
 
 function AiIcon() {
@@ -39,24 +41,35 @@ export default function ModelArtworkPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: modelId } = React.use(params);
-  const currentModel = models.find((m) => m.id === modelId || m.code === modelId);
+  const [currentModel, setCurrentModel] = useState<ModelEntity | null>(null);
 
-  const [rows, setRows] = useState<ArtworkRow[]>([
-    {
-      id: "art-1",
-      description: "Front Chest Graphic - CHAOS Gradient Print",
-      receivedDate: "2026-08-20",
-      fileName: "CHAOS_Tote_Vector_V2.ai",
-      fileSize: "14.2 MB",
-    },
-    {
-      id: "art-2",
-      description: "Care Label & Hangtag Artwork Vector",
-      receivedDate: "2026-08-21",
-    },
-  ]);
+  useEffect(() => {
+    async function loadModel() {
+      if (!modelId) return;
+      try {
+        const data = await ModelsApi.getById(modelId);
+        if (data) setCurrentModel(data);
+      } catch {}
+    }
+    loadModel();
+  }, [modelId]);
+
+  const [rows, setRows] = useState<ArtworkRow[]>([]);
 
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "artwork")
+      .then((records) => {
+        const saved = records[0] as any;
+        if (!saved?.remarks) return;
+        try {
+          const data = JSON.parse(saved.remarks);
+          if (Array.isArray(data.rows)) setRows(data.rows);
+        } catch {}
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   function handleAddRow() {
     const newRow: ArtworkRow = {
@@ -78,10 +91,17 @@ export default function ModelArtworkPage({
     );
   }
 
-  function handleFileUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+    let fileUrl: string | undefined;
+    try {
+      fileUrl = (await uploadModelFile(modelId, file)) || undefined;
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload artwork file.");
+      return;
+    }
     setRows((prev) =>
       prev.map((r) =>
         r.id === id
@@ -89,13 +109,27 @@ export default function ModelArtworkPage({
               ...r,
               fileName: file.name,
               fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+              fileUrl,
             }
           : r
       )
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `artwork-${modelId}`,
+        modelId,
+        inspectionType: "artwork",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify({ rows }),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save artwork records.");
+      return;
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   }

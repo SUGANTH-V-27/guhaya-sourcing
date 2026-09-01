@@ -1,91 +1,87 @@
 import { Request, Response } from "express";
-import { db } from "../config/db.js";
+import { modelService } from "../services/model.service.js";
+import { sendSuccess, sendError } from "../utils/helpers.js";
 
 export const getModels = async (req: Request, res: Response) => {
   try {
-    const { brandId } = req.query;
-    const query = brandId ? { brand_id: brandId } : undefined;
-    const models = await db.models.select(query);
-    res.json({ success: true, data: models });
+    const brandId = (req.query.brandId as string) || (req.query.brand_id as string);
+    const models = await modelService.getAll(brandId);
+    return sendSuccess(res, models);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const getModelById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const model = await db.models.selectById(id);
+    const model = await modelService.getById(id);
     if (!model) {
-      return res.status(404).json({ success: false, message: "Model not found" });
+      return sendError(res, "Model not found", 404);
     }
-    res.json({ success: true, data: model });
+    return sendSuccess(res, model);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const createModel = async (req: Request, res: Response) => {
   try {
-    const newModel = await db.models.insert(req.body);
-    res.status(201).json({ success: true, data: newModel });
+    const newModel = await modelService.create(req.body);
+    return sendSuccess(res, newModel, "Model created successfully", 201);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const updateModel = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await db.models.update(id, req.body);
+    const updated = await modelService.update(id, req.body);
     if (!updated) {
-      return res.status(404).json({ success: false, message: "Model not found" });
+      return sendError(res, "Model not found", 404);
     }
-    res.json({ success: true, data: updated });
+    return sendSuccess(res, updated, "Model updated successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const deleteModel = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await db.models.delete(id);
-    res.json({ success: true, deleted });
+    const deleted = await modelService.delete(id);
+    return sendSuccess(res, { deleted }, "Model deleted successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
-// Subpage details: POs, Fabric, Measurements, Patterns, Trimmings, TNA
 export const getModelSubpageData = async (req: Request, res: Response) => {
   try {
     const { id, subpage } = req.params;
-    let data: any[] = [];
-    switch (subpage) {
-      case "purchase-order":
-        data = await db.purchaseOrders.select({ model_id: id });
-        break;
-      case "fabric-status":
-        data = await db.fabricStatus.select({ model_id: id });
-        break;
-      case "measurement":
-        data = await db.measurementSpecs.select({ model_id: id });
-        break;
-      case "pattern-files":
-        data = await db.patternFiles.select({ model_id: id });
-        break;
-      case "trimming":
-        data = await db.trimmingItems.select({ model_id: id });
-        break;
-      case "tna":
-        data = await db.tnaActivities.select({ model_id: id });
-        break;
-      default:
-        return res.status(400).json({ success: false, message: `Unknown subpage: ${subpage}` });
-    }
-    res.json({ success: true, data });
+    const data = await modelService.getSubpageData(id, subpage);
+    return sendSuccess(res, data);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
+  }
+};
+
+export const saveModelSubpageData = async (req: Request, res: Response) => {
+  try {
+    const { id, subpage } = req.params;
+    const saved = await modelService.saveSubpageData(id, subpage, req.body);
+    return sendSuccess(res, saved, "Model subpage data saved successfully", 201);
+  } catch (error: any) {
+    return sendError(res, error.message, 500, error);
+  }
+};
+
+export const deleteModelSubpageData = async (req: Request, res: Response) => {
+  try {
+    const deleted = await modelService.deleteSubpageData(req.params.subpage, req.params.recordId);
+    return sendSuccess(res, { deleted }, "Model subpage data deleted");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to delete model subpage data", 400, error);
   }
 };

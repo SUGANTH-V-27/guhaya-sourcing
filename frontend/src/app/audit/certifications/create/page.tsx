@@ -20,13 +20,7 @@ import {
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
 
-const DEFAULT_FACTORIES = [
-  "KRK Creationss",
-  "Shri Subam Tex",
-  "Apex Apparels Ltd",
-  "Guhaya Textiles",
-  "Velan Knits",
-];
+const DEFAULT_FACTORIES: string[] = [];
 
 export default function CreateCertificationPage() {
   const router = useRouter();
@@ -60,7 +54,7 @@ export default function CreateCertificationPage() {
     setPdfFileName(file.name);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!factoryName.trim()) {
       showToast("Please select a factory name");
@@ -71,19 +65,22 @@ export default function CreateCertificationPage() {
       return;
     }
 
-    addCertification({
-      factoryName,
-      certificationType: certificateName,
-      certificateNumber: pdfFileName || `CERT-${Date.now().toString().slice(-6)}`,
-      issuingBody: "Certification Body",
-      issueDate: issueDate || new Date().toISOString().split("T")[0],
-      expiryDate: expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      scope: "Garment Manufacturing",
-      notes: remarks || "-",
-      pdfUrl: pdfFileName || undefined,
-    } as any);
-
-    router.push("/audit/certifications");
+    try {
+      await addCertification({
+        factoryName,
+        certificationType: certificateName,
+        certificateNumber: pdfFileName || `CERT-${Date.now().toString().slice(-6)}`,
+        issuingBody: "Certification Body",
+        issueDate: issueDate || new Date().toISOString().split("T")[0],
+        expiryDate: expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        scope: "Garment Manufacturing",
+        notes: remarks || "-",
+        pdfUrl: pdfFileName || undefined,
+      } as any);
+      router.push("/audit/certifications");
+    } catch (error: any) {
+      showToast(error?.message || "Failed to save certification");
+    }
   }
 
   return (

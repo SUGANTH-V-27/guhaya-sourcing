@@ -1,56 +1,77 @@
 import { Request, Response } from "express";
-import { db } from "../config/db.js";
+import { brandService } from "../services/brand.service.js";
+import { sendSuccess, sendError } from "../utils/helpers.js";
 
 export const getBrands = async (req: Request, res: Response) => {
   try {
-    const brands = await db.brands.select();
-    res.json({ success: true, data: brands });
+    const brands = await brandService.getAll();
+    return sendSuccess(res, brands);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const getBrandById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const brand = await db.brands.selectById(id);
+    const brand = await brandService.getById(id);
     if (!brand) {
-      return res.status(404).json({ success: false, message: "Brand not found" });
+      return sendError(res, "Brand not found", 404);
     }
-    res.json({ success: true, data: brand });
+    return sendSuccess(res, brand);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const createBrand = async (req: Request, res: Response) => {
   try {
-    const newBrand = await db.brands.insert(req.body);
-    res.status(201).json({ success: true, data: newBrand });
+    const newBrand = await brandService.create(req.body);
+    return sendSuccess(res, newBrand, "Brand created successfully", 201);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const updateBrand = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await db.brands.update(id, req.body);
+    const updated = await brandService.update(id, req.body);
     if (!updated) {
-      return res.status(404).json({ success: false, message: "Brand not found" });
+      return sendError(res, "Brand not found", 404);
     }
-    res.json({ success: true, data: updated });
+    return sendSuccess(res, updated, "Brand updated successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const deleteBrand = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await db.brands.delete(id);
-    res.json({ success: true, deleted });
+    const deleted = await brandService.delete(id);
+    return sendSuccess(res, { deleted }, "Brand deleted successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
+  }
+};
+
+export const getBrandSubpage = async (req: Request, res: Response) => {
+  try {
+    const { id, subpage } = req.params;
+    const data = await brandService.getSubpageData(id, subpage);
+    return sendSuccess(res, data);
+  } catch (error: any) {
+    return sendError(res, error.message, 500, error);
+  }
+};
+
+export const saveBrandSubpage = async (req: Request, res: Response) => {
+  try {
+    const { id, subpage } = req.params;
+    const saved = await brandService.saveSubpageData(id, subpage, req.body);
+    return sendSuccess(res, saved, "Brand subpage data saved successfully", 201);
+  } catch (error: any) {
+    return sendError(res, error.message, 500, error);
   }
 };

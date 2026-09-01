@@ -24,23 +24,7 @@ import {
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
 
-const DEFAULT_CERTS: CertificationRecord[] = [
-  {
-    id: "cert-1",
-    factoryName: "KRK Creationss",
-    certificationType: "SEDEX",
-    certificateNumber: "ZAA600153074",
-    issuingBody: "SEDEX",
-    issueDate: "2025-08-28",
-    expiryDate: "2026-08-28",
-    scope: "Garment Manufacturing",
-    auditGrade: "Approved",
-    notes: "-",
-    pdfUrl: "KRK SEDEX SMETA_ZAA600153074.pdf",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const DEFAULT_CERTS: CertificationRecord[] = [];
 
 function daysLeftBadge(expiryDate: string) {
   const exp = new Date(expiryDate);
@@ -88,7 +72,7 @@ export function CertificationsPage() {
 
   useEffect(() => {
     const loaded = loadCertifications();
-    setCertifications(loaded.length > 0 ? loaded : DEFAULT_CERTS);
+    setCertifications(loaded);
   }, []);
 
   function showToast(msg: string) {
@@ -131,18 +115,23 @@ export function CertificationsPage() {
     setIsModalOpen(true);
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm("Delete this certificate?")) return;
-    deleteCertification(id);
-    setCertifications((prev) => prev.filter((c) => c.id !== id));
-    showToast("Certificate deleted");
+    try {
+      await deleteCertification(id);
+      setCertifications((prev) => prev.filter((c) => c.id !== id));
+      showToast("Certificate deleted");
+    } catch (error: any) {
+      showToast(error?.message || "Failed to delete certificate");
+    }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!formFactory.trim()) { showToast("Select a factory"); return; }
 
     if (editingCert) {
-      updateCertification(editingCert.id, {
+      try {
+        await updateCertification(editingCert.id, {
         factoryName: formFactory,
         certificationType: formType,
         certificateNumber: formCertNo,
@@ -152,11 +141,15 @@ export function CertificationsPage() {
         scope: "Garment Manufacturing",
         notes: formNotes,
         pdfUrl: formPdfName,
-      } as any);
-      setCertifications(loadCertifications());
-      showToast("Certificate updated");
+        } as any);
+        setCertifications(loadCertifications());
+        showToast("Certificate updated");
+      } catch (error: any) {
+        showToast(error?.message || "Failed to update certificate");
+      }
     } else {
-      addCertification({
+      try {
+        await addCertification({
         factoryName: formFactory,
         certificationType: formType,
         certificateNumber: formCertNo,
@@ -166,9 +159,12 @@ export function CertificationsPage() {
         scope: "Garment Manufacturing",
         notes: formNotes,
         pdfUrl: formPdfName,
-      } as any);
-      setCertifications(loadCertifications());
-      showToast("Certificate added");
+        } as any);
+        setCertifications(loadCertifications());
+        showToast("Certificate added");
+      } catch (error: any) {
+        showToast(error?.message || "Failed to add certificate");
+      }
     }
     setIsModalOpen(false);
   }

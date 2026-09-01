@@ -1,56 +1,57 @@
 import { Request, Response } from "express";
-import { db } from "../config/db.js";
+import { orderService } from "../services/order.service.js";
+import { sendSuccess, sendError } from "../utils/helpers.js";
 
 export const getOrders = async (req: Request, res: Response) => {
   try {
-    const orders = await db.purchaseOrders.select();
-    res.json({ success: true, data: orders });
+    const orders = await orderService.getAll();
+    return sendSuccess(res, orders);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const getOrderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const order = await db.purchaseOrders.selectById(id);
+    const order = await orderService.getById(id);
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return sendError(res, "Order not found", 404);
     }
-    res.json({ success: true, data: order });
+    return sendSuccess(res, order);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
-    const newOrder = await db.purchaseOrders.insert(req.body);
-    res.status(201).json({ success: true, data: newOrder });
+    const newOrder = await orderService.create(req.body);
+    return sendSuccess(res, newOrder, "Order created successfully", 201);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const updateOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await db.purchaseOrders.update(id, req.body);
+    const updated = await orderService.update(id, req.body);
     if (!updated) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return sendError(res, "Order not found", 404);
     }
-    res.json({ success: true, data: updated });
+    return sendSuccess(res, updated, "Order updated successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const deleteOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await db.purchaseOrders.delete(id);
-    res.json({ success: true, deleted });
+    const deleted = await orderService.delete(id);
+    return sendSuccess(res, { deleted }, "Order deleted successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };

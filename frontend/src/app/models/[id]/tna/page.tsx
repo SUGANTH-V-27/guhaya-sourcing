@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface TNARow {
   id: string;
@@ -21,99 +22,7 @@ interface TNARow {
   remarks: string;
 }
 
-const DEFAULT_TNA_ACTIVITIES: TNARow[] = [
-  {
-    id: "tna-1",
-    activity: "Order Confirmation & Tech Pack Release",
-    plannedDate: "2026-08-01",
-    actualDate: "2026-08-02",
-    remarks: "Confirmed PO with buyer tech pack v2",
-  },
-  {
-    id: "tna-2",
-    activity: "Fabric Booking & Yarn In-house",
-    plannedDate: "2026-08-05",
-    actualDate: "2026-08-04",
-    remarks: "Yarn received at Prime Tex dyeing mill",
-  },
-  {
-    id: "tna-3",
-    activity: "Lab Dip & Shade Swatch Approval",
-    plannedDate: "2026-08-10",
-    actualDate: "2026-08-10",
-    remarks: "Option B approved by buyer colorist",
-  },
-  {
-    id: "tna-4",
-    activity: "Fit Sample / Gold Seal Approval",
-    plannedDate: "2026-08-15",
-    actualDate: "2026-08-17",
-    remarks: "Hood depth adjusted and approved",
-  },
-  {
-    id: "tna-5",
-    activity: "Bulk Trims & Accessories In-house",
-    plannedDate: "2026-08-18",
-    actualDate: "",
-    remarks: "Labels in-house; drawcords in transit",
-  },
-  {
-    id: "tna-6",
-    activity: "Pre-Production Meeting (PPM)",
-    plannedDate: "2026-08-20",
-    actualDate: "2026-08-20",
-    remarks: "Critical points documented with factory QA",
-  },
-  {
-    id: "tna-7",
-    activity: "Bulk Fabric In-house & 4-Point Audit",
-    plannedDate: "2026-08-22",
-    actualDate: "",
-    remarks: "4,200 kg fleece expected from finishing unit",
-  },
-  {
-    id: "tna-8",
-    activity: "Bulk Cutting Start",
-    plannedDate: "2026-08-25",
-    actualDate: "",
-    remarks: "CAD markers ready, 87.4% efficiency",
-  },
-  {
-    id: "tna-9",
-    activity: "Sewing Line Production Start",
-    plannedDate: "2026-08-28",
-    actualDate: "",
-    remarks: "Line #4 allocated, target 1,200 pcs/day",
-  },
-  {
-    id: "tna-10",
-    activity: "Inline & Midline QC Audits",
-    plannedDate: "2026-09-05",
-    actualDate: "",
-    remarks: "AQL 2.5 Major / 4.0 Minor tolerance",
-  },
-  {
-    id: "tna-11",
-    activity: "Finishing, Ironing & Packaging",
-    plannedDate: "2026-09-18",
-    actualDate: "",
-    remarks: "Polybag with barcode & carton packing",
-  },
-  {
-    id: "tna-12",
-    activity: "Final Random Inspection (AQL)",
-    plannedDate: "2026-09-24",
-    actualDate: "",
-    remarks: "Final pre-shipment sign-off",
-  },
-  {
-    id: "tna-13",
-    activity: "Ex-Factory Dispatch",
-    plannedDate: "2026-09-30",
-    actualDate: "",
-    remarks: "Container handover to forwarder",
-  },
-];
+const DEFAULT_TNA_ACTIVITIES: TNARow[] = [];
 
 export default function ModelTNAPage({
   params,
@@ -123,6 +32,7 @@ export default function ModelTNAPage({
   const { id: modelId } = React.use(params);
   const [rows, setRows] = useState<TNARow[]>(DEFAULT_TNA_ACTIVITIES);
   const [isSavedAlert, setIsSavedAlert] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function calculateStatus(planned: string, actual: string) {
     if (!planned || !actual) return null;
@@ -164,9 +74,28 @@ export default function ModelTNAPage({
     );
   }
 
-  function handleSave() {
-    setIsSavedAlert(true);
-    setTimeout(() => setIsSavedAlert(false), 3000);
+  async function handleSave() {
+    setSaveError(null);
+    try {
+      await Promise.all(
+        rows.map((row) =>
+          ModelsApi.saveTnaPlan({
+            id: row.id,
+            modelId,
+            poNumber: "",
+            orderQty: 0,
+            exFactoryDate: row.plannedDate || undefined,
+            totalStages: 1,
+            completedStages: row.actualDate ? 1 : 0,
+            status: row.actualDate ? "Completed" : "Pending",
+          })
+        )
+      );
+      setIsSavedAlert(true);
+      setTimeout(() => setIsSavedAlert(false), 3000);
+    } catch (error: any) {
+      setSaveError(error?.message || "Failed to save T&A plan.");
+    }
   }
 
   return (
@@ -200,6 +129,11 @@ export default function ModelTNAPage({
             <button onClick={() => setIsSavedAlert(false)} className="text-teal-400 hover:text-white">
               ✕
             </button>
+          </div>
+        )}
+        {saveError && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-300">
+            {saveError}
           </div>
         )}
 

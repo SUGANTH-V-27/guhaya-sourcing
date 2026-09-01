@@ -14,6 +14,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { useEffect } from "react";
+import financeService from "../../../services/finance.service";
 import {
   computeFactoryLedger,
   formatDateShort,
@@ -32,12 +34,30 @@ export function FactoryLedgerPage() {
   const [selectedFactory, setSelectedFactory] = useState<string>(factoryOptions[0] || "");
   const [openingBalanceStr, setOpeningBalanceStr] = useState<string>("0");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [backendEntries, setBackendEntries] = useState<LedgerTransaction[]>([]);
+
+  useEffect(() => {
+    if (!selectedFactory) return;
+    financeService.getLedger(selectedFactory)
+      .then((records: any[]) => setBackendEntries(records.map((record) => ({
+        id: record.id,
+        date: record.transactionDate || record.date || "",
+        particulars: record.description || record.particulars || "Ledger entry",
+        vchType: "Journal Entry",
+        vchNo: record.referenceNo || record.referenceNumber || "",
+        debit: Number(record.debitAmount || record.debit) || null,
+        credit: Number(record.creditAmount || record.credit) || null,
+        balance: Number(record.runningBalance || record.balance) || 0,
+        remarks: record.notes || record.remarks,
+      }))))
+      .catch(() => setBackendEntries([]));
+  }, [selectedFactory]);
 
   const openingBalance = parseFloat(openingBalanceStr) || 0;
 
   const ledgerSummary: FactoryLedgerSummary = useMemo(() => {
-    return computeFactoryLedger(selectedFactory, selectedFy, openingBalance);
-  }, [selectedFactory, selectedFy, openingBalance]);
+    return computeFactoryLedger(selectedFactory, selectedFy, openingBalance, backendEntries);
+  }, [selectedFactory, selectedFy, openingBalance, backendEntries]);
 
   function showToast(msg: string) {
     setToastMsg(msg);

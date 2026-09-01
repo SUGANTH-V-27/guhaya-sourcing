@@ -1,3 +1,5 @@
+import { db } from "../db/db-client";
+
 export type ComplianceRating = "Green" | "Light-Green" | "Orange" | "Red" | "Black" | "N/A";
 export type FindingSeverity = "Critical" | "Major" | "Minor" | "Observation";
 export type AuditGrade = "A" | "B" | "C" | "D" | "E";
@@ -38,14 +40,16 @@ export type SectionScore = {
 
 export type CapFinding = {
   id: string;
-  findingNo: string;
-  severity: FindingSeverity;
-  sectionName: string;
-  issueDescription: string;
-  correctiveAction: string;
-  responsiblePerson: string;
-  agreedTimeline: string;
-  status: "Open" | "In Progress" | "Resolved" | "Verified";
+  findingNo?: string;
+  severity: FindingSeverity | string;
+  sectionName?: string;
+  category?: string;
+  description?: string;
+  issueDescription?: string;
+  correctiveAction?: string;
+  responsiblePerson?: string;
+  agreedTimeline?: string;
+  status: "Open" | "In Progress" | "Resolved" | "Verified" | string;
 };
 
 export type SocialComplianceAudit = {
@@ -54,18 +58,22 @@ export type SocialComplianceAudit = {
   brand?: string;
   auditDate: string;
   auditorName: string;
-  auditType: "Initial Audit" | "Periodic Audit" | "Follow-up Audit" | "Unannounced Audit";
+  auditType: "Initial Audit" | "Periodic Audit" | "Follow-up Audit" | "Unannounced Audit" | string;
   factoryAddress?: string;
   address?: string;
   contactPerson?: string;
   contactEmail?: string;
+  contact?: string;
+  email?: string;
   overallScorePercent: number;
-  grade: AuditGrade;
-  status: "Passed" | "Conditional" | "Failed" | "Action Required";
-  sections: SectionScore[];
-  findings: CapFinding[];
+  grade: AuditGrade | string;
+  status?: "Passed" | "Conditional" | "Failed" | "Action Required" | string;
+  sections?: SectionScore[];
+  sectionScores?: Record<string, any> | SectionScore[];
+  findings?: CapFinding[];
   capFindings?: CapFinding[];
   auditorRemarks?: string;
+  remarks?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -131,22 +139,25 @@ export function getSocialAuditById(id: string): SocialComplianceAudit | undefine
   return loadSocialAudits().find((a) => a.id === id);
 }
 
-export function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
+export async function saveOrUpdateSocialAudit(audit: SocialComplianceAudit) {
   const list = loadSocialAudits();
   const idx = list.findIndex((a) => a.id === audit.id);
   if (idx >= 0) {
     list[idx] = { ...audit, updatedAt: new Date().toISOString() };
+    await db.socialComplianceAudits.update(audit.id, audit);
   } else {
     list.unshift({
       ...audit,
       createdAt: audit.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    await db.socialComplianceAudits.insert(audit);
   }
   saveSocialAudits(list);
 }
 
-export function deleteSocialAudit(id: string) {
+export async function deleteSocialAudit(id: string) {
+  await db.socialComplianceAudits.delete(id);
   const list = loadSocialAudits().filter((a) => a.id !== id);
   saveSocialAudits(list);
 }

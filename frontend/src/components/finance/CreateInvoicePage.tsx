@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
-import { brands } from "@/lib/mock-data";
+import { BrandsApi } from "@/lib/api/brands-api";
 import {
   buildMockCommissionPos,
   COMMISSION_BRANDS,
@@ -51,7 +51,10 @@ const sectionClass = "rounded-xl border border-gray-700 bg-gray-900 p-6";
 
 const BRAND_OPTIONS = [
   ...COMMISSION_BRANDS.map((b) => b.name),
-  ...brands.map((b) => b.name),
+  "SOXO",
+  "TERA",
+  "ASTRA",
+  "KORVA",
 ];
 
 function newCommissionRow(partial?: Partial<InvoiceCommissionRow>): InvoiceCommissionRow {
@@ -98,16 +101,14 @@ function poToCommissionRow(po: CommissionPo): InvoiceCommissionRow {
 export function CreateInvoicePage({ editId }: { editId?: string }) {
   const router = useRouter();
   const isEdit = Boolean(editId);
-  const [unpaidPos] = useState<CommissionPo[]>(() =>
-    buildMockCommissionPos().filter((p) => p.status === "unpaid"),
-  );
+  const [unpaidPos, setUnpaidPos] = useState<CommissionPo[]>([]);
 
   const today = new Date();
   const [date, setDate] = useState(today.toISOString().slice(0, 10));
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceNumberTouched, setInvoiceNumberTouched] = useState(false);
   const [brandName, setBrandName] = useState("");
-  const [hsnCode, setHsnCode] = useState("9988");
+  const [hsnCode, setHsnCode] = useState("");
   const [commissionRows, setCommissionRows] = useState<InvoiceCommissionRow[]>([]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([newLineItem()]);
   const [invoiceTo, setInvoiceTo] = useState({
@@ -117,9 +118,9 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     state: "",
     code: "",
   });
-  const [bankDiscountPct, setBankDiscountPct] = useState(3);
-  const [cgstPct, setCgstPct] = useState(2.5);
-  const [sgstPct, setSgstPct] = useState(2.5);
+  const [bankDiscountPct, setBankDiscountPct] = useState(0);
+  const [cgstPct, setCgstPct] = useState(0);
+  const [sgstPct, setSgstPct] = useState(0);
   const [showPoModal, setShowPoModal] = useState(false);
   const [poSearch, setPoSearch] = useState("");
   const [modalSelectedIds, setModalSelectedIds] = useState<string[]>([]);
@@ -272,12 +273,13 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     return true;
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!date) return;
     if (!validateInvoiceNumber()) return;
 
     if (isEdit && editId) {
-      updateInvoice(editId, {
+      try {
+        await updateInvoice(editId, {
         invoiceNumber: invoiceNumber.trim().toUpperCase(),
         date,
         brandName,
@@ -288,7 +290,11 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
         bankDiscountPct,
         cgstPct,
         sgstPct,
-      });
+        });
+      } catch (error: any) {
+        alert(error?.message || "Failed to update invoice.");
+        return;
+      }
     } else {
       const record: InvoiceRecord = {
         id: `inv-${Date.now()}`,
@@ -307,7 +313,12 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
         remarks: "",
         createdAt: new Date().toISOString(),
       };
-      addInvoice(record);
+      try {
+        await addInvoice(record);
+      } catch (error: any) {
+        alert(error?.message || "Failed to create invoice.");
+        return;
+      }
     }
 
     router.push("/finance/invoices");

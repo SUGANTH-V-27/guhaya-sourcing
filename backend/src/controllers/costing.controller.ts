@@ -1,56 +1,57 @@
 import { Request, Response } from "express";
-import { db } from "../config/db.js";
+import { costingService } from "../services/costing.service.js";
+import { sendSuccess, sendError } from "../utils/helpers.js";
 
 export const getCostings = async (req: Request, res: Response) => {
   try {
-    const costings = await db.costSheets.select();
-    res.json({ success: true, data: costings });
+    const costings = await costingService.getAll();
+    return sendSuccess(res, costings);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const getCostingById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const costing = await db.costSheets.selectById(id);
+    const costing = await costingService.getById(id);
     if (!costing) {
-      return res.status(404).json({ success: false, message: "Costing not found" });
+      return sendError(res, "Costing sheet not found", 404);
     }
-    res.json({ success: true, data: costing });
+    return sendSuccess(res, costing);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const createCosting = async (req: Request, res: Response) => {
   try {
-    const newCosting = await db.costSheets.insert(req.body);
-    res.status(201).json({ success: true, data: newCosting });
+    const newCosting = await costingService.create(req.body);
+    return sendSuccess(res, newCosting, "Cost sheet created successfully", 201);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const updateCosting = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await db.costSheets.update(id, req.body);
+    const updated = await costingService.update(id, req.body);
     if (!updated) {
-      return res.status(404).json({ success: false, message: "Costing not found" });
+      return sendError(res, "Cost sheet not found", 404);
     }
-    res.json({ success: true, data: updated });
+    return sendSuccess(res, updated, "Cost sheet updated successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };
 
 export const deleteCosting = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await db.costSheets.delete(id);
-    res.json({ success: true, deleted });
+    const deleted = await costingService.delete(id);
+    return sendSuccess(res, { deleted }, "Cost sheet deleted successfully");
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    return sendError(res, error.message, 500, error);
   }
 };

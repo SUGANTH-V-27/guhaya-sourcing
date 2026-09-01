@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelsApi } from "@/lib/api/models-api";
 
 interface DefectRow {
   id: string;
@@ -77,22 +78,25 @@ export default function InlineInspectionPage({
   const [inspections, setInspections] = useState<InlineInspectionReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    ModelsApi.getQcInspections(modelId, "inline-inspection")
+      .then((records) => {
+        setInspections(records.flatMap((record: any) => {
+          try { return [JSON.parse(record.remarks) as InlineInspectionReport]; } catch { return []; }
+        }));
+      })
+      .catch(() => {});
+  }, [modelId]);
+
   // ── Form State for New/Edit Inline Inspection ──────────────────────────────
-  const [styleNumber] = useState(modelId || "5906482949644");
-  const [poNumber] = useState("PI_NF_001");
-  const [orderQty] = useState(5760);
-  const [factory] = useState("NANDHI FABRICS");
-  const [inlineDate, setInlineDate] = useState("2026-08-23");
+  const [styleNumber, setStyleNumber] = useState(modelId || "");
+  const [poNumber, setPoNumber] = useState("");
+  const [orderQty, setOrderQty] = useState<number | string>("");
+  const [factory, setFactory] = useState("");
+  const [inlineDate, setInlineDate] = useState(new Date().toISOString().split("T")[0]);
   const [outputQty, setOutputQty] = useState<string>("");
 
-  const [defects, setDefects] = useState<DefectRow[]>([
-    { id: "d-1", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-2", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-3", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-4", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-5", description: "", critical: 0, major: 0, minor: 0 },
-    { id: "d-6", description: "", critical: 0, major: 0, minor: 0 },
-  ]);
+  const [defects, setDefects] = useState<DefectRow[]>([]);
 
   const [checkMeasurements, setCheckMeasurements] = useState<boolean>(false);
   const [comments, setComments] = useState("");
@@ -141,12 +145,12 @@ export default function InlineInspectionPage({
     );
   }
 
-  function handleSaveInspection() {
+  async function handleSaveInspection() {
     const newReport: InlineInspectionReport = {
       id: `inline-${Date.now()}`,
       styleNumber,
       poNumber,
-      orderQty,
+      orderQty: Number(orderQty) || 0,
       factory,
       inlineDate,
       outputQty: outputNumber,
@@ -164,15 +168,39 @@ export default function InlineInspectionPage({
       createdAt: new Date().toISOString().split("T")[0],
     };
 
+    try {
+      await ModelsApi.saveQcInspection({
+        id: newReport.id,
+        modelId,
+        inspectionType: "inline-inspection",
+        factory,
+        inspectionDate: inlineDate,
+        totalOrderQty: newReport.orderQty,
+        sampleSize: newReport.sampleSize,
+        criticalDefects: newReport.totalCritical,
+        majorDefects: newReport.totalMajor,
+        minorDefects: newReport.totalMinor,
+        result: newReport.result,
+        remarks: JSON.stringify(newReport),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to save in-line inspection.");
+      return;
+    }
     setInspections([newReport, ...inspections]);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
     setViewMode("list");
   }
 
-  function handleDeleteInspection(id: string) {
+  async function handleDeleteInspection(id: string) {
     if (confirm("Delete this in-line inspection?")) {
-      setInspections(inspections.filter((i) => i.id !== id));
+      try {
+        await ModelsApi.deleteQcInspection(modelId, id);
+        setInspections((current) => current.filter((i) => i.id !== id));
+      } catch (error: any) {
+        alert(error?.message || "Failed to delete in-line inspection.");
+      }
     }
   }
 

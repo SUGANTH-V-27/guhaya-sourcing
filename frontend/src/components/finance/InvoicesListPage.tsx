@@ -145,15 +145,19 @@ export function InvoicesListPage() {
 
   const fyLabel = FY_OPTIONS.find((f) => f.suffix === fySuffix)?.label ?? `FY ${fySuffix}`;
 
-  function patchInvoice(id: string, patch: Partial<InvoiceRecord>) {
-    updateInvoice(id, patch);
+  async function patchInvoice(id: string, patch: Partial<InvoiceRecord>) {
+    await updateInvoice(id, patch);
     refresh();
   }
 
-  function handleDelete(inv: InvoiceRecord) {
+  async function handleDelete(inv: InvoiceRecord) {
     if (!window.confirm(`Delete invoice ${inv.invoiceNumber}?`)) return;
-    deleteInvoice(inv.id);
-    refresh();
+    try {
+      await deleteInvoice(inv.id);
+      refresh();
+    } catch (error: any) {
+      alert(error?.message || "Failed to delete invoice.");
+    }
   }
 
   const fyPillClass = (suffix: string) =>
