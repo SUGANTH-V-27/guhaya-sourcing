@@ -23,9 +23,9 @@ export default function LoginPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // If prefers reduced motion, skip video
+    // If already seen in this session or prefers reduced motion
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) {
+    if (mq.matches || sessionStorage.getItem(SESSION_KEY)) {
       setIsPlayingVideo(false);
       setVideoEnded(true);
       return;
