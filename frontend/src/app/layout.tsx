@@ -14,6 +14,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Guhaya Sourcing",
   description: "Sourcing platform",
+  icons: {
+    icon: "/guhaya_favicon.png",
+  },
 };
 
 export default function RootLayout({
