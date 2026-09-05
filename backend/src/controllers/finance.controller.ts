@@ -3,12 +3,22 @@ import { financeService } from "../services/finance.service.js";
 import { sendSuccess, sendError } from "../utils/helpers.js";
 
 // Invoices
-export const getInvoices = async (_req: Request, res: Response) => {
+export const getInvoices = async (req: Request, res: Response) => {
   try {
-    const data = await financeService.getInvoices();
+    const data = await financeService.getInvoices(req.query.month as string | undefined);
     return sendSuccess(res, data);
   } catch (error: any) {
     return sendError(res, error.message || "Failed to fetch invoices", 500, error);
+  }
+};
+
+export const getInvoiceById = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.getInvoiceById(req.params.id);
+    if (!data) return sendError(res, "Invoice not found", 404);
+    return sendSuccess(res, data);
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to fetch invoice", 500, error);
   }
 };
 
@@ -44,11 +54,29 @@ export const deleteInvoice = async (req: Request, res: Response) => {
 // Factory Ledger
 export const getLedger = async (req: Request, res: Response) => {
   try {
-    const { factory } = req.query;
-    const data = await financeService.getLedgerTransactions(factory as string);
+    const { factory, fromDate, toDate } = req.query;
+    const data = await financeService.getLedgerTransactions(factory as string, fromDate as string, toDate as string);
     return sendSuccess(res, data);
   } catch (error: any) {
     return sendError(res, error.message || "Failed to fetch ledger transactions", 500, error);
+  }
+};
+
+export const getLedgerOpeningBalance = async (req: Request, res: Response) => {
+  try {
+    const value = await financeService.getLedgerOpeningBalance(String(req.query.factory || ""), String(req.query.fiscalYear || ""));
+    return sendSuccess(res, { openingBalance: value });
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to fetch opening balance", 500, error);
+  }
+};
+
+export const saveLedgerOpeningBalance = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.saveLedgerOpeningBalance(req.body.factoryName, req.body.fiscalYear, Number(req.body.openingBalance) || 0);
+    return sendSuccess(res, data, "Opening balance saved");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to save opening balance", 400, error);
   }
 };
 
@@ -240,6 +268,15 @@ export const saveAttendance = async (req: Request, res: Response) => {
   }
 };
 
+export const updateAttendance = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.updateAttendanceRecord(req.params.id, req.body);
+    return sendSuccess(res, data, "Attendance record updated");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update attendance", 400, error);
+  }
+};
+
 // Salaries
 export const getSalaries = async (req: Request, res: Response) => {
   try {
@@ -257,6 +294,15 @@ export const createSalary = async (req: Request, res: Response) => {
     return sendSuccess(res, data, "Salary record created", 201);
   } catch (error: any) {
     return sendError(res, error.message || "Failed to create salary record", 400, error);
+  }
+};
+
+export const updateSalary = async (req: Request, res: Response) => {
+  try {
+    const data = await financeService.updateSalarySlip(req.params.id, req.body);
+    return sendSuccess(res, data, "Salary record updated");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to update salary record", 400, error);
   }
 };
 
@@ -327,5 +373,34 @@ export const saveCompanySettings = async (req: Request, res: Response) => {
     return sendSuccess(res, data, "Settings saved successfully");
   } catch (error: any) {
     return sendError(res, error.message || "Failed to save company settings", 400, error);
+  }
+};
+
+export const getFactoryCommissionRates = async (_req: Request, res: Response) => {
+  try {
+    const data = await financeService.getFactoryCommissionRates();
+    return sendSuccess(res, data);
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to fetch factory commission rates", 500, error);
+  }
+};
+
+export const saveFactoryCommissionRate = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await financeService.saveFactoryCommissionRate({ ...req.body, ...(id ? { id } : {}) });
+    return sendSuccess(res, data, "Factory commission rate saved successfully");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to save factory commission rate", 400, error);
+  }
+};
+
+export const deleteFactoryCommissionRate = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await financeService.deleteFactoryCommissionRate(id);
+    return sendSuccess(res, { id }, "Factory commission rate deleted");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to delete factory commission rate", 500, error);
   }
 };

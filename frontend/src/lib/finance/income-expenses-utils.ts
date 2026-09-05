@@ -2,19 +2,17 @@ import { calcInvoiceNetAmount } from "./invoice-calculations";
 import type { InvoiceRecord } from "./invoice-storage";
 import { loadInvoices } from "./invoice-storage";
 
-export function invoicePaidInMonth(inv: InvoiceRecord, year: number, month: number): boolean {
-  const paid = inv.paidAmount ?? 0;
-  if (paid <= 0) return false;
-
-  const dateStr = inv.paymentDate || inv.date;
+export function invoiceCreatedInMonth(inv: InvoiceRecord, year: number, month: number): boolean {
+  const dateStr = inv.date;
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return false;
 
   return d.getFullYear() === year && d.getMonth() + 1 === month;
 }
 
-export function getPaidInvoicesForMonth(year: number, month: number): InvoiceRecord[] {
-  return loadInvoices().filter((inv) => invoicePaidInMonth(inv, year, month));
+export async function getInvoicesForMonth(year: number, month: number): Promise<InvoiceRecord[]> {
+  const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+  return await loadInvoices(monthKey);
 }
 
 export function getInvoiceIncomeAmount(inv: InvoiceRecord): number {

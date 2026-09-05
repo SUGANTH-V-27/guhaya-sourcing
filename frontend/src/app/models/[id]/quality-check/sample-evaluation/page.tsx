@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi } from "@/lib/api/models-api";
+import { uploadFile } from "@/lib/storage";
 
 interface SizeQtyItem {
   id: string;
@@ -83,6 +84,7 @@ export default function SampleEvaluationPage({
 
   const [comments, setComments] = useState("");
   const [bleConnected, setBleConnected] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleAddSizeRow() {
@@ -103,13 +105,20 @@ export default function SampleEvaluationPage({
     );
   }
 
-  function handleGsmImageUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleGsmImageUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setGsmList((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, imageName: file.name, imageUrl: url } : g))
-    );
+    try {
+      const imageUrl = await uploadFile("sample-evaluations", modelId, file, (progress) => {
+        setUploadProgress((current) => ({ ...current, [id]: progress }));
+      });
+      setGsmList((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, imageName: file.name, imageUrl } : g))
+      );
+      setUploadProgress((current) => ({ ...current, [id]: 100 }));
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload GSM image.");
+    }
   }
 
   async function handleSaveEvaluation() {
@@ -538,7 +547,7 @@ export default function SampleEvaluationPage({
                           <label className="flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed border-teal-900/60 bg-black/40 hover:border-teal-500/50 hover:bg-black/60 transition cursor-pointer space-y-1.5 group">
                             <Camera size={20} className="text-teal-400 group-hover:scale-110 transition-transform" />
                             <span className="text-xs font-medium text-gray-400 group-hover:text-gray-200">
-                              Upload
+                              {uploadProgress[gsm.id] > 0 && uploadProgress[gsm.id] < 100 ? `Uploading ${uploadProgress[gsm.id]}%` : "Upload"}
                             </span>
                             <input
                               type="file"

@@ -8,7 +8,8 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "generate": "prisma generate",
-    "seed": "tsx seed.ts"
+    "seed": "tsx seed.ts",
+    "seed:factory-rates": "tsx scripts/seed-factory-rates.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2"

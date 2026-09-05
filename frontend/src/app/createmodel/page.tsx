@@ -2,9 +2,11 @@
 
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Plus, Trash2, Upload, ChevronDown } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi } from "@/lib/api/models-api";
+import { uploadFile } from "@/lib/storage";
 
 function CreateModelContent() {
   const router = useRouter();
@@ -15,6 +17,7 @@ function CreateModelContent() {
   const [modelName, setModelName] = useState("");
   const [modelNo, setModelNo] = useState("");
   const [imagePreview, setImagePreview] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,11 +91,8 @@ function CreateModelContent() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -157,13 +157,14 @@ function CreateModelContent() {
     setIsSaving(true);
 
     try {
+      const imageUrl = imageFile ? await uploadFile("models", code, imageFile) : "";
       await ModelsApi.create({
         id: code,
         brandId,
         code,
         name,
         category: formData["Product Group"] || "Apparel",
-        image: imagePreview || "",
+        image: imageUrl,
         status: "Pending",
         daysToHandover: 14,
         factory: formData["Factory"] || "NANDHI FABRICS",
@@ -395,9 +396,5 @@ function CreateModelContent() {
 }
 
 export default function CreateModelPage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-teal-400">Loading...</div>}>
-      <CreateModelContent />
-    </Suspense>
-  );
+  redirect("/brands");
 }

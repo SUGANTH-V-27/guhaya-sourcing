@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
@@ -49,9 +50,11 @@ export default function SignupPage() {
     <div className="w-full flex flex-col items-center">
       {/* Brand Logo: Clean & static */}
       <div className="mb-6 flex flex-col items-center text-center select-none">
-        <img
+        <Image
           src="/guhayalogo.png"
           alt="Guhaya Sourcing Logo"
+          width={160}
+          height={160}
           className="h-48 w-auto object-contain animate-in fade-in duration-700 drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
           style={{ filter: "brightness(1.1) saturate(1.2)" }}
         />

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   Calendar,
   ChevronDown,
   FileText,
@@ -17,6 +15,7 @@ import {
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 import { uploadModelFile } from "@/lib/storage";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 
 interface TechPackRow {
   id: string;
@@ -25,6 +24,7 @@ interface TechPackRow {
   remarks: string;
   fileName?: string;
   fileUrl?: string;
+  fileType?: string;
 }
 
 interface ModelCommentRow {
@@ -35,6 +35,7 @@ interface ModelCommentRow {
   commentsDate: string;
   commentsFileName?: string;
   commentsFileUrl?: string;
+  commentsFileType?: string;
   designerStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
   graphicStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
   technologistStatus: "PENDING" | "APPROVED" | "REJECTED" | "AMENDED";
@@ -68,24 +69,65 @@ export default function ModelDocumentationPage({
   }, [modelId]);
 
   // ── Tech Pack Rows ─────────────────────────────────────────────────────────
-  const [techPacks, setTechPacks] = useState<TechPackRow[]>([]);
+  const [techPacks, setTechPacks] = useState<TechPackRow[]>([{
+    id: "tp-initial",
+    originalTechPack: "1st Tech Pack",
+    receivedDate: "",
+    remarks: "",
+  }]);
 
   // ── Model Comments Rows ────────────────────────────────────────────────────
-  const [comments, setComments] = useState<ModelCommentRow[]>([]);
+  const [comments, setComments] = useState<ModelCommentRow[]>([{
+    id: "com-initial",
+    sample: "",
+    submission: "",
+    sentDate: "",
+    commentsDate: "",
+    designerStatus: "PENDING",
+    graphicStatus: "PENDING",
+    technologistStatus: "PENDING",
+    remarks: "",
+  }]);
 
   // ── Overall Approval Status ────────────────────────────────────────────────
   const [overallStatus, setOverallStatus] = useState<OverallStatus>("PENDING");
   const [isSaved, setIsSaved] = useState(false);
+  const [techPackUploads, setTechPackUploads] = useState<Record<string, number>>({});
+  const [commentUploads, setCommentUploads] = useState<Record<string, number>>({});
+
+  const createEmptyTechPack = (): TechPackRow => ({
+    id: `tp-${Date.now()}`,
+    originalTechPack: "",
+    receivedDate: "",
+    remarks: "",
+  });
+
+  const createEmptyComment = (): ModelCommentRow => ({
+    id: `com-${Date.now()}`,
+    sample: "",
+    submission: "",
+    sentDate: "",
+    commentsDate: "",
+    designerStatus: "PENDING",
+    graphicStatus: "PENDING",
+    technologistStatus: "PENDING",
+    remarks: "",
+  });
 
   useEffect(() => {
     ModelsApi.getQcInspections(modelId, "documentation")
       .then((records) => {
         const saved = records[0] as any;
-        if (!saved?.remarks) return;
+        if (!saved?.remarks) {
+          setTechPacks([createEmptyTechPack()]);
+          setComments([createEmptyComment()]);
+          return;
+        }
         try {
           const data = JSON.parse(saved.remarks);
-          if (Array.isArray(data.techPacks)) setTechPacks(data.techPacks);
-          if (Array.isArray(data.comments)) setComments(data.comments);
+          if (Array.isArray(data.techPacks)) setTechPacks(data.techPacks.length ? data.techPacks : [createEmptyTechPack()]);
+          if (Array.isArray(data.comments)) setComments(data.comments.length ? data.comments : [createEmptyComment()]);
+          if (data.overallStatus || saved.result) setOverallStatus(data.overallStatus || saved.result);
         } catch {}
       })
       .catch(() => {});
@@ -103,8 +145,10 @@ export default function ModelDocumentationPage({
   }
 
   function handleDeleteTechPack(id: string) {
-    if (techPacks.length <= 1) return;
-    setTechPacks(techPacks.filter((tp) => tp.id !== id));
+    setTechPacks((current) => {
+      const remaining = current.filter((tp) => tp.id !== id);
+      return remaining.length ? remaining : [createEmptyTechPack()];
+    });
   }
 
   function handleUpdateTechPack(id: string, field: keyof TechPackRow, value: string) {
@@ -116,14 +160,22 @@ export default function ModelDocumentationPage({
   async function handleTechPackFileUpload(id: string, event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setTechPackUploads((current) => ({ ...current, [id]: 0 }));
     try {
-      const fileUrl = await uploadModelFile(modelId, file);
+      const fileUrl = await uploadModelFile(modelId, file, (progress) => {
+        setTechPackUploads((current) => ({ ...current, [id]: progress }));
+      });
       setTechPacks((prev) => prev.map((pack) => pack.id === id
-        ? { ...pack, fileName: file.name, fileUrl: fileUrl || undefined }
+        ? { ...pack, fileName: file.name, fileUrl: fileUrl || undefined, fileType: file.type }
         : pack));
     } catch (error: any) {
       alert(error?.message || "Failed to upload tech pack.");
     } finally {
+      setTechPackUploads((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
       event.target.value = "";
     }
   }
@@ -144,8 +196,10 @@ export default function ModelDocumentationPage({
   }
 
   function handleDeleteComment(id: string) {
-    if (comments.length <= 1) return;
-    setComments(comments.filter((c) => c.id !== id));
+    setComments((current) => {
+      const remaining = current.filter((comment) => comment.id !== id);
+      return remaining.length ? remaining : [createEmptyComment()];
+    });
   }
 
   function handleUpdateComment(id: string, field: keyof ModelCommentRow, value: any) {
@@ -157,14 +211,22 @@ export default function ModelDocumentationPage({
   async function handleCommentsFileUpload(id: string, event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setCommentUploads((current) => ({ ...current, [id]: 0 }));
     try {
-      const fileUrl = await uploadModelFile(modelId, file);
+      const fileUrl = await uploadModelFile(modelId, file, (progress) => {
+        setCommentUploads((current) => ({ ...current, [id]: progress }));
+      });
       setComments((prev) => prev.map((comment) => comment.id === id
-        ? { ...comment, commentsFileName: file.name, commentsFileUrl: fileUrl || undefined }
+        ? { ...comment, commentsFileName: file.name, commentsFileUrl: fileUrl || undefined, commentsFileType: file.type }
         : comment));
     } catch (error: any) {
       alert(error?.message || "Failed to upload comments file.");
     } finally {
+      setCommentUploads((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
       event.target.value = "";
     }
   }
@@ -177,7 +239,7 @@ export default function ModelDocumentationPage({
         inspectionType: "documentation",
         inspectionDate: new Date().toISOString(),
         result: overallStatus,
-        remarks: JSON.stringify({ techPacks, comments }),
+        remarks: JSON.stringify({ techPacks, comments, overallStatus }),
       });
     } catch (error: any) {
       alert(error?.message || "Failed to save documentation.");
@@ -190,16 +252,6 @@ export default function ModelDocumentationPage({
   return (
     <SourcingShell>
       <div className="space-y-8 text-gray-200 pb-20">
-        {/* Top Back Link */}
-        <div>
-          <Link
-            href={`/models/${modelId}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-teal-400 transition"
-          >
-            <ArrowLeft size={14} /> Back to Model
-          </Link>
-        </div>
-
         {/* Save Confirmation Toast */}
         {isSaved && (
           <div className="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-3 text-xs font-semibold text-teal-300 flex items-center justify-between">
@@ -282,6 +334,24 @@ export default function ModelDocumentationPage({
                       }}
                     />
                   </label>
+                  {techPackUploads[tp.id] !== undefined && (
+                    <div className="w-28" aria-live="polite">
+                      <div className="mb-1 flex justify-between text-[10px] text-teal-300">
+                        <span>Uploading</span><span>{techPackUploads[tp.id]}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-800">
+                        <div className="h-full bg-teal-400 transition-all" style={{ width: `${techPackUploads[tp.id]}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {tp.fileUrl && (
+                    <a href={tp.fileUrl} target="_blank" rel="noreferrer" className="flex max-w-32 items-center gap-1.5 text-[10px] text-teal-300 hover:text-white" title={tp.fileName}>
+                      {tp.fileType?.startsWith("image/") ? (
+                        <img src={tp.fileUrl} alt={tp.fileName || "Tech pack"} className="h-8 w-8 rounded object-cover" />
+                      ) : <FileText size={18} />}
+                      <span className="truncate">{tp.fileName}</span>
+                    </a>
+                  )}
 
                   {/* Delete Row */}
                   <button
@@ -333,11 +403,7 @@ export default function ModelDocumentationPage({
               )}
             </div>
 
-            {/* Overdue Badge */}
-            <div className="w-full flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs font-bold text-amber-400">
-              <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-              <span>3 Days overdue!</span>
-            </div>
+            <ModelStatusWidget model={{ id: modelId, daysToHandover: currentModel?.daysToHandover }} />
           </div>
         </div>
 
@@ -420,6 +486,24 @@ export default function ModelDocumentationPage({
                         }}
                       />
                     </label>
+                    {commentUploads[com.id] !== undefined && (
+                      <div className="mt-1 w-28" aria-live="polite">
+                        <div className="mb-1 flex justify-between text-[10px] text-teal-300">
+                          <span>Uploading</span><span>{commentUploads[com.id]}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-gray-800">
+                          <div className="h-full bg-teal-400 transition-all" style={{ width: `${commentUploads[com.id]}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    {com.commentsFileUrl && (
+                      <a href={com.commentsFileUrl} target="_blank" rel="noreferrer" className="mt-1 flex max-w-32 items-center gap-1.5 text-[10px] text-teal-300 hover:text-white" title={com.commentsFileName}>
+                        {com.commentsFileType?.startsWith("image/") ? (
+                          <img src={com.commentsFileUrl} alt={com.commentsFileName || "Comments file"} className="h-8 w-8 rounded object-cover" />
+                        ) : <FileText size={18} />}
+                        <span className="truncate">{com.commentsFileName}</span>
+                      </a>
+                    )}
                   </div>
 
                   {/* Role Status Dropdown: DESIGNER */}

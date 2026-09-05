@@ -1,5 +1,6 @@
 import { db } from "../db/db-client";
 import { modelService } from "../../../services/model.service";
+import { api } from "../../../services/api";
 
 export interface ModelEntity {
   id: string;
@@ -12,21 +13,35 @@ export interface ModelEntity {
   status: "Pending" | "Shipped";
   factory?: string;
   targetFob?: number;
+  imageUrl?: string;
+  factoryId?: string;
+  factoryName?: string;
+}
+
+function normalizeModel(model: any): ModelEntity {
+  return {
+    ...model,
+    image: model.image || model.imageUrl || "",
+    imageUrl: model.imageUrl || model.image || "",
+    factory: model.factory || model.factoryName || "",
+  };
 }
 
 export const ModelsApi = {
   async getAll(): Promise<ModelEntity[]> {
-    return await db.models.getAll();
+    return (await db.models.getAll()).map(normalizeModel);
   },
 
   async getByBrand(brandId: string): Promise<ModelEntity[]> {
-    return await db.models.query(
+    const models = await db.models.query(
       (m) => m.brandId.toLowerCase() === brandId.toLowerCase()
     );
+    return models.map(normalizeModel);
   },
 
   async getById(id: string): Promise<ModelEntity | null> {
-    return await db.models.getById(id);
+    const model = await db.models.getById(id);
+    return model ? normalizeModel(model) : null;
   },
 
   async create(model: Omit<ModelEntity, "id"> & { id?: string }): Promise<ModelEntity> {
@@ -43,14 +58,26 @@ export const ModelsApi = {
 
   // Purchase Order
   async getPurchaseOrders(modelId: string) {
-    return await db.purchaseOrders.query((po) => po.modelId === modelId);
+    return await api.get<any[]>("/orders", { modelId });
   },
 
   async savePurchaseOrder(po: any) {
     if (po.id) {
-      return await db.purchaseOrders.update(po.id, po);
+      return await api.put(`/orders/${po.id}`, po);
     }
-    return await db.purchaseOrders.insert(po);
+    return await api.post("/orders", po);
+  },
+
+  async deletePurchaseOrder(id: string) {
+    return await api.delete(`/orders/${id}`);
+  },
+
+  async getTestingRequirements(purchaseOrderId: string) {
+    return await api.get<any[]>(`/orders/${purchaseOrderId}/testing-requirements`);
+  },
+
+  async saveTestingRequirements(purchaseOrderId: string, requirements: any[]) {
+    return await api.put(`/orders/${purchaseOrderId}/testing-requirements`, { requirements });
   },
 
   // T&A
@@ -62,6 +89,10 @@ export const ModelsApi = {
     return await modelService.saveSubpageData(tna.modelId, "tna", tna);
   },
 
+  async deleteTnaPlan(modelId: string, recordId: string) {
+    return await modelService.deleteSubpageData(modelId, "tna", recordId);
+  },
+
   // Trimming BOM
   async getTrimmingBoms(modelId: string) {
     return await modelService.getSubpageData(modelId, "trimming");
@@ -69,6 +100,10 @@ export const ModelsApi = {
 
   async saveTrimmingBom(bom: any) {
     return await modelService.saveSubpageData(bom.modelId, "trimming", bom);
+  },
+
+  async deleteTrimmingBom(modelId: string, recordId: string) {
+    return await modelService.deleteSubpageData(modelId, "trimming", recordId);
   },
 
   // Quality Check

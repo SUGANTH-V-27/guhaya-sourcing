@@ -1,22 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
   ChevronDown,
+  Eye,
+  Pencil,
   Layers,
   Lock,
   Plus,
   Save,
   Trash2,
-  X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 
 interface FabricHeaderRow {
   id: string;
@@ -33,8 +31,38 @@ interface FabricStatusEntry {
   lotNumber: string;
   status: "Pending" | "In Process" | "Completed" | "Approved" | "Delayed";
   quantity: string;
+  inhouseQuantity?: string;
+  processRows?: FabricProcessRow[];
+  balanceKgs?: number;
+  processCount?: number;
   completedDate?: string;
+  statusDate?: string;
   remarks: string;
+}
+
+interface FabricProcessRow {
+  id: string;
+  process: string;
+  completedQty: string;
+  remarks: string;
+}
+
+const createProcessRow = (index = 0): FabricProcessRow => ({
+  id: `process-${Date.now()}-${index}`,
+  process: "",
+  completedQty: "",
+  remarks: "",
+});
+
+function parseKgs(value?: string) {
+  return Number.parseFloat((value || "").replace(/,/g, "")) || 0;
+}
+
+function formatStatusDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
 export default function ModelFabricStatusPage({
@@ -58,6 +86,7 @@ export default function ModelFabricStatusPage({
 
   // ── Header State ───────────────────────────────────────────────────────────
   const [totalOrderQty, setTotalOrderQty] = useState(0);
+  const [purchaseOrderQty, setPurchaseOrderQty] = useState<number | null>(null);
   const [numberOfFabrics, setNumberOfFabrics] = useState(0);
   const [fabricRows, setFabricRows] = useState<FabricHeaderRow[]>([]);
 
@@ -70,9 +99,27 @@ export default function ModelFabricStatusPage({
   const [modalFabricType, setModalFabricType] = useState("");
   const [modalLotNumber, setModalLotNumber] = useState("");
   const [modalStatus, setModalStatus] = useState<"Pending" | "In Process" | "Completed" | "Approved" | "Delayed">("In Process");
-  const [modalQuantity, setModalQuantity] = useState("");
+  const [modalInhouseQuantity, setModalInhouseQuantity] = useState("");
   const [modalRemarks, setModalRemarks] = useState("");
+  const [modalDate, setModalDate] = useState("");
+  const [modalProcessCount, setModalProcessCount] = useState("1");
+  const [processRows, setProcessRows] = useState<FabricProcessRow[]>([createProcessRow()]);
   const [isSaved, setIsSaved] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<FabricStatusEntry | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!modelId) return;
+    ModelsApi.getPurchaseOrders(modelId)
+      .then((orders) => {
+        const quantity = orders.reduce((total, order: any) => total + (Number(order.totalQty) || 0), 0);
+        if (quantity > 0) {
+          setPurchaseOrderQty(quantity);
+          setTotalOrderQty(quantity);
+        }
+      })
+      .catch(() => {});
+  }, [modelId]);
 
   useEffect(() => {
     ModelsApi.getQcInspections(modelId, "fabric-status")
@@ -81,14 +128,23 @@ export default function ModelFabricStatusPage({
         if (!saved?.remarks) return;
         try {
           const data = JSON.parse(saved.remarks);
-          if (typeof data.totalOrderQty === "number") setTotalOrderQty(data.totalOrderQty);
+          if (typeof data.totalOrderQty === "number" && purchaseOrderQty === null) setTotalOrderQty(data.totalOrderQty);
           if (typeof data.numberOfFabrics === "number") setNumberOfFabrics(data.numberOfFabrics);
           if (Array.isArray(data.fabricRows)) setFabricRows(data.fabricRows);
-          if (Array.isArray(data.statusEntries)) setStatusEntries(data.statusEntries);
+          if (Array.isArray(data.statusEntries)) {
+            setStatusEntries(data.statusEntries.map((entry: FabricStatusEntry) => ({
+              ...entry,
+              inhouseQuantity: entry.inhouseQuantity || entry.quantity || "",
+              processRows: entry.processRows?.length
+                ? entry.processRows
+                : [{ id: `process-${entry.id}`, process: entry.stageName || "", completedQty: entry.quantity || "", remarks: entry.remarks || "" }],
+              processCount: entry.processCount || entry.processRows?.length || 1,
+            })));
+          }
         } catch {}
       })
       .catch(() => {});
-  }, [modelId]);
+  }, [modelId, purchaseOrderQty]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleNumberFabricsChange(count: number) {
@@ -113,8 +169,8 @@ export default function ModelFabricStatusPage({
         const updated = { ...r, [field]: value };
         if (field === "quantityKgs") {
           const kgs = parseFloat(value.replace(/,/g, "")) || 0;
-          if (kgs > 0 && totalOrderQty > 0) {
-            updated.avgConsumption = `${(kgs / totalOrderQty).toFixed(2)} kg/pc`;
+          if (kgs > 0 && effectiveOrderQty > 0) {
+            updated.avgConsumption = `${(kgs / effectiveOrderQty).toFixed(2)} kg/pc`;
           }
         }
         return updated;
@@ -122,36 +178,101 @@ export default function ModelFabricStatusPage({
     );
   }
 
-  function handleCreateStatusEntry() {
-    const newEntry: FabricStatusEntry = {
-      id: `stat-${Date.now()}`,
-      stageName: modalStageName,
+  async function persistFabricStatus(entries: FabricStatusEntry[]) {
+    await ModelsApi.saveQcInspection({
+      id: `fabric-status-${modelId}`,
+      modelId,
+      inspectionType: "fabric-status",
+      inspectionDate: new Date().toISOString(),
+      result: "Pending",
+      remarks: JSON.stringify({ totalOrderQty, numberOfFabrics, fabricRows, statusEntries: entries }),
+    });
+  }
+
+  async function handleCreateStatusEntry() {
+    const entry: FabricStatusEntry = {
+      id: editingEntryId || `stat-${Date.now()}`,
+      stageName: processRows[0]?.process || modalStageName,
       fabricType: modalFabricType,
       lotNumber: modalLotNumber,
       status: modalStatus,
-      quantity: modalQuantity,
+      quantity: modalInhouseQuantity,
+      inhouseQuantity: modalInhouseQuantity,
+      processRows: processRows.map((row) => ({ ...row })),
+      processCount: processRows.length,
+      balanceKgs: Math.max(0, totalKgs - parseKgs(modalInhouseQuantity)),
       completedDate: modalStatus === "Completed" || modalStatus === "Approved" ? new Date().toISOString().split("T")[0] : undefined,
+      statusDate: modalDate,
       remarks: modalRemarks,
     };
-    setStatusEntries([...statusEntries, newEntry]);
+    const nextEntries = editingEntryId
+      ? statusEntries.map((item) => item.id === editingEntryId ? entry : item)
+      : [...statusEntries, entry];
+    setStatusEntries(nextEntries);
+    try {
+      await persistFabricStatus(nextEntries);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save status entry.");
+      return;
+    }
     setIsModalOpen(false);
+    setModalInhouseQuantity("");
     setModalRemarks("");
+    setModalStageName("");
+    setModalDate("");
+    setModalProcessCount("1");
+    setProcessRows([createProcessRow()]);
+    setEditingEntryId(null);
   }
 
-  function handleDeleteStatusEntry(id: string) {
-    setStatusEntries(statusEntries.filter((s) => s.id !== id));
+  function handleProcessCountChange(value: number) {
+    const count = Math.max(1, Math.min(20, value || 1));
+    setModalProcessCount(String(count));
+    setProcessRows((current) => {
+      const next = current.slice(0, count);
+      while (next.length < count) next.push(createProcessRow(next.length));
+      return next;
+    });
+  }
+
+  function updateProcessRow(id: string, field: keyof FabricProcessRow, value: string) {
+    setProcessRows((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
+  }
+
+  async function handleDeleteStatusEntry(id: string) {
+    const nextEntries = statusEntries.filter((s) => s.id !== id);
+    setStatusEntries(nextEntries);
+    try {
+      await persistFabricStatus(nextEntries);
+    } catch (error: any) {
+      alert(error?.message || "Failed to delete status entry.");
+    }
+    setSelectedEntry(null);
+  }
+
+  function handleEditStatusEntry(entry: FabricStatusEntry) {
+    setEditingEntryId(entry.id);
+    setModalStageName(entry.stageName || "");
+    setModalFabricType(entry.fabricType || "");
+    setModalLotNumber(entry.lotNumber || "");
+    setModalStatus(entry.status || "In Process");
+    setModalInhouseQuantity(entry.inhouseQuantity || entry.quantity || "");
+    setModalRemarks(entry.remarks || "");
+    setModalDate(entry.statusDate || entry.completedDate || "");
+    setProcessRows(entry.processRows?.length ? entry.processRows.map((row) => ({ ...row })) : [createProcessRow()]);
+    setModalProcessCount(String(entry.processCount || entry.processRows?.length || 1));
+    setSelectedEntry(null);
+    setIsModalOpen(true);
+  }
+
+  function getCompletedQuantity(entry: FabricStatusEntry) {
+    return entry.processRows?.reduce((sum, row) => sum + (parseFloat(row.completedQty.replace(/,/g, "")) || 0), 0)
+      ?? (parseFloat(entry.quantity.replace(/,/g, "")) || 0);
   }
 
   async function handleSaveHeader() {
     try {
-      await ModelsApi.saveQcInspection({
-        id: `fabric-status-${modelId}`,
-        modelId,
-        inspectionType: "fabric-status",
-        inspectionDate: new Date().toISOString(),
-        result: "Pending",
-        remarks: JSON.stringify({ totalOrderQty, numberOfFabrics, fabricRows, statusEntries }),
-      });
+      await persistFabricStatus(statusEntries);
     } catch (error: any) {
       alert(error?.message || "Failed to save fabric status.");
       return;
@@ -164,20 +285,15 @@ export default function ModelFabricStatusPage({
     (sum, r) => sum + (parseFloat(r.quantityKgs.replace(/,/g, "")) || 0),
     0
   );
+  const completedKgs = statusEntries.reduce((sum, entry) => sum + getCompletedQuantity(entry), 0);
+  const balanceKgs = Math.max(0, totalKgs - completedKgs);
+  const modalInhouseKgs = parseKgs(modalInhouseQuantity);
+  const modalBalanceKgs = Math.max(0, totalKgs - modalInhouseKgs);
+  const effectiveOrderQty = purchaseOrderQty ?? totalOrderQty;
 
   return (
     <SourcingShell>
       <div className="space-y-6 text-gray-200 pb-20">
-        {/* Top Back Link */}
-        <div>
-          <Link
-            href={`/models/${modelId}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-teal-400 transition"
-          >
-            <ArrowLeft size={14} /> Back to Model
-          </Link>
-        </div>
-
         {/* Save Toast */}
         {isSaved && (
           <div className="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-3 text-xs font-semibold text-teal-300 flex items-center justify-between">
@@ -208,8 +324,8 @@ export default function ModelFabricStatusPage({
                 <label className="text-[11px] font-semibold text-gray-400 block mb-1">
                   Total Order Quantity
                 </label>
-                <div className="h-9 px-4 flex items-center bg-yellow-100/90 border border-yellow-400/80 rounded-lg text-xs font-mono font-bold text-gray-900 min-w-[120px]">
-                  {totalOrderQty.toLocaleString()}
+                <div className="h-9 px-4 flex items-center bg-teal-500/10 border border-teal-500/40 rounded-lg text-xs font-mono font-bold text-teal-200 min-w-[120px]">
+                  {effectiveOrderQty.toLocaleString()}
                 </div>
               </div>
 
@@ -270,7 +386,12 @@ export default function ModelFabricStatusPage({
                   </div>
 
                   <div className="col-span-2 font-mono text-xs text-gray-400">
-                    {row.avgConsumption || "—"}
+                    {(() => {
+                      const quantityKgs = parseFloat(row.quantityKgs.replace(/,/g, "")) || 0;
+                      return quantityKgs > 0 && effectiveOrderQty > 0
+                        ? `${(quantityKgs / effectiveOrderQty).toFixed(2)} kg/pc`
+                        : "—";
+                    })()}
                   </div>
                 </div>
               ))}
@@ -283,20 +404,14 @@ export default function ModelFabricStatusPage({
                 </div>
                 <div className="col-span-2 font-mono text-gray-400">{fabricRows.length} Lots</div>
                 <div className="col-span-2 font-mono text-gray-400">
-                  {totalKgs > 0 ? `${(totalKgs / totalOrderQty).toFixed(2)} kg/pc` : "—"}
+                  {totalKgs > 0 && effectiveOrderQty > 0 ? `${(totalKgs / effectiveOrderQty).toFixed(2)} kg/pc` : "—"}
                 </div>
               </div>
             </div>
 
-            {/* Save Header Button */}
-            <div>
-              <button
-                type="button"
-                onClick={handleSaveHeader}
-                className="rounded-lg bg-teal-500 px-4 py-1.5 text-xs font-bold text-black hover:bg-teal-400 transition"
-              >
-                SAVE HEADER
-              </button>
+            <div className="flex items-center justify-between border-t border-gray-800 pt-4">
+              <div className="text-xs text-gray-400">Balance: <span className="font-mono font-bold text-teal-300">{balanceKgs.toLocaleString()} kgs</span></div>
+              <button type="button" onClick={handleSaveHeader} className="rounded-lg bg-teal-500 px-4 py-1.5 text-xs font-bold text-black hover:bg-teal-400 transition">SAVE</button>
             </div>
           </div>
 
@@ -327,11 +442,7 @@ export default function ModelFabricStatusPage({
               )}
             </div>
 
-            {/* Overdue Badge */}
-            <div className="w-full flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs font-bold text-amber-400">
-              <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-              <span>3 Days overdue!</span>
-            </div>
+            <ModelStatusWidget model={{ id: modelId, daysToHandover: currentModel?.daysToHandover }} />
           </div>
         </div>
 
@@ -346,184 +457,166 @@ export default function ModelFabricStatusPage({
           </button>
         </div>
 
-        {/* ── Status Entries List ─────────────────────────────────────────────── */}
+        {/* ── Status History ──────────────────────────────────────────────────── */}
         {statusEntries.length > 0 && (
           <div className="space-y-3 pt-2">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Fabric Processing Stages &amp; Batch Status
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {statusEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-2xl border border-gray-800 bg-[#0d1414] p-5 shadow-lg space-y-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="rounded bg-teal-500/10 px-2 py-0.5 text-[11px] font-mono font-bold text-teal-300 border border-teal-500/20">
-                        {entry.lotNumber}
-                      </span>
-                      <h3 className="text-base font-bold text-white mt-1.5">{entry.stageName}</h3>
-                      <p className="text-xs text-teal-400">{entry.fabricType}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                          entry.status === "Approved" || entry.status === "Completed"
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : entry.status === "Delayed"
-                            ? "bg-red-500/20 text-red-300"
-                            : "bg-amber-500/20 text-amber-300"
-                        }`}
-                      >
-                        {entry.status}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStatusEntry(entry.id)}
-                        className="text-gray-500 hover:text-red-400 transition"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-black/40 p-3 rounded-xl">
-                    <div>
-                      <span className="text-gray-500 uppercase text-[10px]">Quantity</span>
-                      <div className="font-mono font-bold text-white">{entry.quantity}</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 uppercase text-[10px]">Date</span>
-                      <div className="font-mono text-gray-300">{entry.completedDate || "In Progress"}</div>
-                    </div>
-                  </div>
-
-                  {entry.remarks && (
-                    <p className="text-xs text-gray-400 italic pt-1">{entry.remarks}</p>
-                  )}
-                </div>
-              ))}
+            <h2 className="border-b border-teal-500/60 pb-3 text-xl font-bold text-white font-serif">STATUS HISTORY</h2>
+            <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#0d1414]">
+              <table className="w-full text-left text-xs text-gray-300">
+                <thead className="border-b border-gray-800 bg-black/30 text-sm font-semibold text-gray-200">
+                  <tr><th className="px-5 py-4">Date</th><th className="px-5 py-4 text-center">Fabric In-housed</th><th className="px-5 py-4 text-center">Improvement from Previous</th><th className="px-5 py-4 text-right">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {statusEntries.map((entry, index) => {
+                    const currentQty = parseKgs(entry.inhouseQuantity || entry.quantity);
+                    const previousQty = parseKgs(statusEntries[index - 1]?.inhouseQuantity || statusEntries[index - 1]?.quantity);
+                    return (
+                      <tr key={entry.id} className="border-b border-gray-800/70 last:border-b-0">
+                        <td className="px-5 py-5 font-mono text-gray-200">{formatStatusDate(entry.statusDate || entry.completedDate)}</td>
+                        <td className="px-5 py-5 text-center font-mono font-bold text-teal-200">{currentQty.toLocaleString()} kgs</td>
+                        <td className="px-5 py-5 text-center"><span className="rounded-md bg-teal-500/15 px-3 py-1.5 font-mono font-bold text-teal-200">{index === 0 ? currentQty : currentQty - previousQty} kgs</span></td>
+                        <td className="px-5 py-5 text-right"><button type="button" onClick={() => setSelectedEntry(entry)} className="rounded-md p-2 text-teal-300 hover:bg-teal-500/10" title="View status"><Eye size={17} /></button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* ── Modal: Create New Fabric Status ──────────────────────────────────── */}
+        {selectedEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelectedEntry(null)}>
+            <div className="w-full max-w-[720px] max-h-[92vh] overflow-y-auto rounded-2xl border border-teal-500/40 bg-[#0d1414] p-7 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="mb-6 flex items-center justify-between border-b border-gray-800 pb-5">
+                <h2 className="text-2xl font-bold text-white font-serif">Status Entry — {formatStatusDate(selectedEntry.statusDate || selectedEntry.completedDate)}</h2>
+                <button type="button" onClick={() => setSelectedEntry(null)} className="text-2xl leading-none text-gray-400 hover:text-white" aria-label="Close">×</button>
+              </div>
+              <div className="space-y-5 text-xs">
+                <div className="max-w-[240px]">
+                  <label className="font-semibold text-gray-200">Date</label>
+                  <div className="mt-1 flex h-11 items-center rounded-lg border border-teal-500/40 bg-black px-3.5 font-mono text-white">{formatStatusDate(selectedEntry.statusDate || selectedEntry.completedDate)}</div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_180px_minmax(0,1fr)]">
+                  <div>
+                    <label className="font-semibold text-gray-200">Total Yarn In-housed (kgs)</label>
+                    <div className="mt-1 flex h-11 items-center rounded-lg border border-teal-500/40 bg-black px-3.5 font-mono font-bold text-white">{parseKgs(selectedEntry.inhouseQuantity || selectedEntry.quantity).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-gray-200">Balance</label>
+                    <div className="mt-1 flex h-11 items-center rounded-lg border border-teal-500/40 bg-teal-500/10 px-3.5 font-mono font-bold text-teal-200">{Number(selectedEntry.balanceKgs ?? 0).toLocaleString()} kgs</div>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-gray-200">Remarks</label>
+                    <div className="mt-1 flex min-h-11 items-center rounded-lg border border-teal-500/40 bg-black px-3.5 text-white">{selectedEntry.remarks || "—"}</div>
+                  </div>
+                </div>
+                <div className="max-w-[180px]">
+                  <label className="font-semibold text-gray-200">No. of Process in Fabric Making</label>
+                  <div className="mt-1 flex h-11 items-center rounded-lg border border-teal-500/40 bg-black px-3.5 font-mono font-bold text-white">{selectedEntry.processCount || selectedEntry.processRows?.length || 1}</div>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-gray-800">
+                  <div className="grid grid-cols-4 gap-3 bg-black/30 px-4 py-4 text-sm font-bold text-gray-200"><span>Process</span><span>Qty (kgs)</span><span>Balance (kgs)</span><span>Remarks</span></div>
+                  {(selectedEntry.processRows || []).map((row, index, rows) => {
+                    const completedThroughRow = rows.slice(0, index + 1).reduce((sum, item) => sum + parseKgs(item.completedQty), 0);
+                    return <div key={row.id} className="grid grid-cols-4 gap-3 border-t border-gray-800 px-4 py-3 text-sm"><div className="rounded-lg border border-teal-500/40 bg-black px-3 py-2 text-white">{row.process || `Process ${index + 1}`}</div><div className="rounded-lg border border-teal-500/40 bg-black px-3 py-2 font-mono text-white">{row.completedQty || "0"}</div><div className="rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-2 font-mono font-bold text-teal-200">{Math.max(0, totalKgs - completedThroughRow).toLocaleString()}</div><div className="rounded-lg border border-teal-500/40 bg-black px-3 py-2 text-white">{row.remarks || "—"}</div></div>;
+                  })}
+                </div>
+              </div>
+              <div className="mt-6 flex gap-3 border-t border-gray-800 pt-5"><button type="button" onClick={() => handleEditStatusEntry(selectedEntry)} className="inline-flex items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-xs font-bold text-black"><Pencil size={14} /> UPDATE</button><button type="button" onClick={() => handleDeleteStatusEntry(selectedEntry.id)} className="inline-flex items-center gap-1.5 rounded-full bg-red-500/80 px-5 py-2.5 text-xs font-bold text-white"><Trash2 size={14} /> DELETE</button></div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Inline: Create New Fabric Status ─────────────────────────────────── */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
-            <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-[#0d1414] shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4 bg-gray-900/60">
-                <h2 className="text-base font-bold text-white">Create Fabric Status Entry</h2>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
-                >
-                  <X size={18} />
-                </button>
+          <div className={editingEntryId
+            ? "fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            : "w-full rounded-2xl border border-teal-400 bg-[#0d1414] shadow-xl overflow-hidden"}
+          >
+            <div className={editingEntryId
+              ? "w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-teal-500/40 bg-[#0d1414] shadow-2xl"
+              : "w-full"}
+            >
+              <div className="border-b border-gray-800 px-6 py-5">
+                <h2 className="text-xl font-bold text-white font-serif">
+                  {editingEntryId ? `Status Entry - ${modalDate || "New"}` : "CREATE NEW STATUS"}
+                </h2>
               </div>
 
-              <div className="p-6 space-y-4 text-xs">
-                <div>
-                  <label className="text-gray-400 uppercase font-semibold block mb-1">
-                    Processing Stage *
-                  </label>
+              <div className="space-y-5 px-6 py-5 text-xs">
+                <div className="max-w-[240px]">
+                  <label className="text-gray-200 font-semibold block mb-1">Date</label>
                   <input
-                    type="text"
-                    value={modalStageName}
-                    onChange={(e) => setModalStageName(e.target.value)}
-                    placeholder="e.g. Dyeing & Finishing, Compacting, In-house QC"
-                    className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                    type="date"
+                    value={modalDate}
+                    onChange={(e) => setModalDate(e.target.value)}
+                    className="w-full rounded-lg border border-teal-500/40 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-300"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_180px_minmax(0,1fr)]">
                   <div>
-                    <label className="text-gray-400 uppercase font-semibold block mb-1">
-                      Fabric Spec
-                    </label>
+                    <label className="text-gray-200 font-semibold block mb-1">Total Fabric In-housed (kgs)</label>
                     <input
                       type="text"
-                      value={modalFabricType}
-                      onChange={(e) => setModalFabricType(e.target.value)}
-                      className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                      value={modalInhouseQuantity}
+                      onChange={(e) => setModalInhouseQuantity(e.target.value)}
+                      className="w-full rounded-lg border border-teal-500/40 bg-black px-3.5 py-2 font-mono text-xs text-white outline-none focus:border-teal-300"
                     />
                   </div>
-
                   <div>
-                    <label className="text-gray-400 uppercase font-semibold block mb-1">
-                      Lot Number
-                    </label>
+                    <label className="text-gray-200 font-semibold block mb-1">Balance</label>
+                    <div className="flex h-[34px] items-center rounded-lg border border-teal-500/40 bg-teal-500/10 px-3.5 font-mono font-bold text-teal-200">
+                      {modalBalanceKgs.toLocaleString()} kgs
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-gray-200 font-semibold block mb-1">Remarks</label>
                     <input
                       type="text"
-                      value={modalLotNumber}
-                      onChange={(e) => setModalLotNumber(e.target.value)}
-                      className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 font-mono text-xs text-white outline-none focus:border-teal-400"
+                      value={modalRemarks}
+                      onChange={(e) => setModalRemarks(e.target.value)}
+                      className="w-full rounded-lg border border-teal-500/40 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-300"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-gray-400 uppercase font-semibold block mb-1">
-                      Batch Quantity (kgs)
-                    </label>
-                    <input
-                      type="text"
-                      value={modalQuantity}
-                      onChange={(e) => setModalQuantity(e.target.value)}
-                      className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 font-mono text-xs text-white outline-none focus:border-teal-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-gray-400 uppercase font-semibold block mb-1">
-                      Status
-                    </label>
-                    <select
-                      value={modalStatus}
-                      onChange={(e) => setModalStatus(e.target.value as any)}
-                      className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
-                    >
-                      <option value="In Process">In Process</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Delayed">Delayed</option>
-                      <option value="Pending">Pending</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-gray-400 uppercase font-semibold block mb-1">
-                    Process Notes / Test Lab Comments
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={modalRemarks}
-                    onChange={(e) => setModalRemarks(e.target.value)}
-                    placeholder="Enter lab dip approval notes, shrinkage percentages, color fastness ratings..."
-                    className="w-full rounded-lg border border-gray-700 bg-black px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
+                <div className="max-w-[180px]">
+                  <label className="text-gray-200 font-semibold block mb-1">No. of Process in Fabric Making</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={modalProcessCount}
+                    onChange={(e) => handleProcessCountChange(Number(e.target.value))}
+                    className="w-full rounded-lg border border-teal-500/40 bg-black px-3.5 py-2 font-mono text-xs text-white outline-none focus:border-teal-300"
                   />
                 </div>
-              </div>
 
-              <div className="flex justify-end gap-2 border-t border-gray-800 px-6 py-4 bg-gray-900/60">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg border border-gray-700 px-4 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateStatusEntry}
-                  className="rounded-lg bg-teal-500 px-5 py-2 text-xs font-bold text-black hover:bg-teal-400"
-                >
-                  Create Status
-                </button>
+                <p className="italic text-teal-300/70">Note: Mention the completed quantity only. Do not mention under processing quantity.</p>
+
+                <div className="overflow-hidden rounded-xl border border-gray-800">
+                  <div className="grid grid-cols-1 gap-3 bg-black/40 px-3 py-3 font-bold text-gray-300 md:grid-cols-[minmax(0,1.2fr)_180px_180px_minmax(0,1.2fr)]">
+                    <span>Process</span><span>Completed Qty (kgs)</span><span>Balance (kgs)</span><span>Remarks</span>
+                  </div>
+                  {processRows.map((row, index) => {
+                    const completedBefore = processRows.slice(0, index).reduce((sum, item) => sum + parseKgs(item.completedQty), 0);
+                    const rowBalance = Math.max(0, totalKgs - completedBefore - parseKgs(row.completedQty));
+                    return (
+                      <div key={row.id} className="grid grid-cols-1 gap-3 border-t border-gray-800 px-3 py-3 md:grid-cols-[minmax(0,1.2fr)_180px_180px_minmax(0,1.2fr)]">
+                        <input type="text" value={row.process} onChange={(e) => updateProcessRow(row.id, "process", e.target.value)} placeholder={`Process ${index + 1}`} className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-2 text-xs text-white outline-none focus:border-teal-300" />
+                        <input type="text" value={row.completedQty} onChange={(e) => updateProcessRow(row.id, "completedQty", e.target.value)} placeholder="0" className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-2 font-mono text-xs text-white outline-none focus:border-teal-300" />
+                        <div className="flex items-center rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 font-mono font-bold text-teal-200">{rowBalance.toLocaleString()}</div>
+                        <input type="text" value={row.remarks} onChange={(e) => updateProcessRow(row.id, "remarks", e.target.value)} placeholder="Process remarks" className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-2 text-xs text-white outline-none focus:border-teal-300" />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-center gap-4 border-t border-gray-800 pt-5">
+                  <button type="button" onClick={handleCreateStatusEntry} className="rounded-full bg-teal-500 px-8 py-2.5 text-xs font-bold text-black hover:bg-teal-400">{editingEntryId ? "UPDATE" : "SAVE"}</button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2.5 text-xs font-bold text-gray-300 hover:text-white">Cancel</button>
+                </div>
               </div>
             </div>
           </div>

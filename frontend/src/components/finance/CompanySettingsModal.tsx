@@ -8,6 +8,7 @@ import {
   saveCompanySettings,
   type CompanySettings,
 } from "@/lib/finance/company-settings-storage";
+import financeService from "@/../services/finance.service";
 
 const inputClass =
   "w-full rounded-lg border border-gray-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-teal-400/60";
@@ -21,15 +22,28 @@ export function CompanySettingsModal({ open, onClose }: Props) {
   const [draft, setDraft] = useState<CompanySettings>(DEFAULT_COMPANY_SETTINGS);
 
   useEffect(() => {
-    if (open) setDraft(loadCompanySettings());
+    if (!open) return;
+    setDraft(loadCompanySettings());
+    financeService.getCompanySettings()
+      .then((settings) => {
+        if (settings) setDraft((current) => ({ ...current, ...settings }));
+      })
+      .catch(() => {
+        // Local defaults remain available when the backend is unavailable.
+      });
   }, [open]);
 
   if (!open) return null;
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.companyName.trim() || !draft.gstin.trim()) return;
-    saveCompanySettings(draft);
-    onClose();
+    try {
+      await financeService.saveCompanySettings(draft);
+      saveCompanySettings(draft);
+      onClose();
+    } catch {
+      saveCompanySettings(draft);
+    }
   }
 
   return (

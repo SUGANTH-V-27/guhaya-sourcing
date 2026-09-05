@@ -17,6 +17,7 @@ export interface PurchaseOrder {
   orderDate?: string;
   deliveryDate?: string;
   shipmentMode?: string;
+  specialInstructions?: string;
   status: OrderStatus;
   items?: any[];
   createdAt?: string;

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authService } from "@/../services/auth.service";
 
-const SESSION_KEY = "guhaya_intro_seen_v2";
+const INTRO_SEEN_KEY = "guhaya_intro_seen_v2";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,18 +19,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Video intro state
-  const [isPlayingVideo, setIsPlayingVideo] = useState(true);
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
+  const [introChecked, setIntroChecked] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // If already seen in this session or prefers reduced motion
+    // Check persistent storage after hydration so refreshes do not briefly show the intro.
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches || sessionStorage.getItem(SESSION_KEY)) {
+    if (mq.matches || localStorage.getItem(INTRO_SEEN_KEY)) {
       setIsPlayingVideo(false);
       setVideoEnded(true);
+      setIntroChecked(true);
       return;
     }
+
+    setIsPlayingVideo(true);
+    setIntroChecked(true);
 
     // Auto-advance safety timer in case video fails or finishes
     const timer = setTimeout(() => {
@@ -45,7 +51,7 @@ export default function LoginPage() {
     setTimeout(() => {
       setVideoEnded(true);
     }, 4200);
-    sessionStorage.setItem(SESSION_KEY, "1");
+    localStorage.setItem(INTRO_SEEN_KEY, "1");
   }
 
 
@@ -125,9 +131,11 @@ export default function LoginPage() {
             transition={{ duration: 2.0, ease: "easeOut" }}
             className="fixed z-50 flex items-center justify-center pointer-events-none"
           >
-            <img
+            <Image
               src="/guhayalogo.png"
               alt="Guhaya Sourcing Logo"
+              width={192}
+              height={192}
               className="h-44 sm:h-48 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
               style={{ filter: "brightness(1.1) saturate(1.2)" }}
             />
@@ -150,13 +158,15 @@ export default function LoginPage() {
       </AnimatePresence>
 
       {/* ── Main Login Layout ────────────────────────────────────────────── */}
-      {videoEnded && (
+      {introChecked && videoEnded && (
         <div className="w-full flex flex-col items-center">
           {/* Brand Logo - Stays visible instantly where flying logo landed */}
           <div className="mb-6 flex flex-col items-center text-center select-none group relative">
-            <img
+            <Image
               src="/guhayalogo.png"
               alt="Guhaya Sourcing Logo"
+              width={192}
+              height={192}
               className="h-44 sm:h-48 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_0_20px_rgba(0,191,165,0.6)]"
               style={{ filter: "brightness(1.1) saturate(1.2)" }}
             />

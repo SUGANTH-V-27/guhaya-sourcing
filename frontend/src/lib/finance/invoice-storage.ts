@@ -1,4 +1,4 @@
-import { db } from "../db/db-client";
+import financeService from "../../../services/finance.service";
 
 export type InvoiceCommissionRow = {
   id: string;
@@ -48,37 +48,54 @@ export type InvoiceRecord = {
 };
 
 function normalizeInvoice(raw: InvoiceRecord): InvoiceRecord {
+  const paymentDate = raw.paymentDate ? String(raw.paymentDate).slice(0, 10) : "";
+
   return {
     ...raw,
-    paymentDate: raw.paymentDate ?? "",
+    paymentDate,
     paidAmount: raw.paidAmount ?? 0,
     remarks: raw.remarks ?? "",
   };
 }
 
-const STORAGE_KEY = "guhaya-invoices";
+function fromApi(raw: any): InvoiceRecord {
+  const lineItems = (raw.lineItems || raw.items || []).map((item: any) => ({
+    id: item.id,
+    description: item.description || item.itemDescription || "Item",
+    quantity: Number(item.quantity) || 0,
+    price: Number(item.price ?? item.rate) || 0,
+  }));
 
-export function loadInvoices(): InvoiceRecord[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const list = raw ? (JSON.parse(raw) as InvoiceRecord[]) : [];
-    return list.map(normalizeInvoice);
-  } catch {
-    return [];
-  }
-}
-
-export function saveInvoices(invoices: InvoiceRecord[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
+  return normalizeInvoice({
+    id: raw.id,
+    invoiceNumber: raw.invoiceNumber || "",
+    date: raw.date || (raw.invoiceDate ? String(raw.invoiceDate).slice(0, 10) : ""),
+    brandName: raw.brandName || "",
+    hsnCode: raw.hsnCode || "9988",
+    invoiceTo: raw.invoiceTo || {
+      company: raw.partyName || "",
+      address: raw.partyAddress || "",
+      gstin: raw.partyGstin || "",
+      state: "",
+      code: "",
+    },
+    commissionRows: raw.commissionRows || [],
+    lineItems,
+    bankDiscountPct: Number(raw.bankDiscountPct) || 0,
+    cgstPct: Number(raw.cgstPct ?? raw.cgstRate) || 0,
+    sgstPct: Number(raw.sgstPct ?? raw.sgstRate) || 0,
+    paymentDate: raw.paymentDate ? String(raw.paymentDate).slice(0, 10) : "",
+    paidAmount: Number(raw.paidAmount) || 0,
+    remarks: raw.remarks || "",
+    createdAt: raw.createdAt || new Date().toISOString(),
+  });
 }
 
 export async function addInvoice(invoice: InvoiceRecord) {
   const subtotal = invoice.lineItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
   const cgstAmount = subtotal * (invoice.cgstPct / 100);
   const sgstAmount = subtotal * (invoice.sgstPct / 100);
-  await db.invoices.insert({
+  await financeService.createInvoice({
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     partyName: invoice.invoiceTo?.company || invoice.brandName || "Buyer",
@@ -92,29 +109,35 @@ export async function addInvoice(invoice: InvoiceRecord) {
     sgstRate: invoice.sgstPct,
     sgstAmount,
     grandTotal: subtotal + cgstAmount + sgstAmount,
-    notes: invoice.remarks || null,
+    lineItems: invoice.lineItems,
+    brandName: invoice.brandName,
+    hsnCode: invoice.hsnCode,
+    invoiceTo: invoice.invoiceTo,
+    commissionRows: invoice.commissionRows,
+    bankDiscountPct: invoice.bankDiscountPct,
+    paymentDate: invoice.paymentDate,
+    remarks: invoice.remarks,
   });
-  const invoices = loadInvoices();
-  invoices.unshift(invoice);
-  saveInvoices(invoices);
 }
 
-export function getInvoiceNumbers(): string[] {
-  return loadInvoices().map((inv) => inv.invoiceNumber);
+export async function loadInvoices(monthKey?: string): Promise<InvoiceRecord[]> {
+  const invoices = await financeService.getInvoices(monthKey);
+  return (invoices || []).map(fromApi);
 }
 
-export function getInvoiceById(id: string): InvoiceRecord | undefined {
-  return loadInvoices().find((inv) => inv.id === id);
+export async function getInvoiceNumbers(): Promise<string[]> {
+  return (await loadInvoices()).map((inv) => inv.invoiceNumber);
+}
+
+export async function getInvoiceById(id: string): Promise<InvoiceRecord | undefined> {
+  const invoice = await financeService.getInvoiceById(id);
+  return invoice ? fromApi(invoice) : undefined;
 }
 
 export async function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
-  const invoices = loadInvoices();
-  const next = invoices.map((inv) => (inv.id === id ? normalizeInvoice({ ...inv, ...patch }) : inv));
-  await db.invoices.update(id, patch);
-  saveInvoices(next);
+  await financeService.updateInvoice(id, patch);
 }
 
 export async function deleteInvoice(id: string) {
-  await db.invoices.delete(id);
-  saveInvoices(loadInvoices().filter((inv) => inv.id !== id));
+  await financeService.deleteInvoice(id);
 }

@@ -16,6 +16,7 @@ import {
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { useEffect } from "react";
 import financeService from "../../../services/finance.service";
+import { BrandsApi } from "@/lib/api/brands-api";
 import {
   computeFactoryLedger,
   formatDateShort,
@@ -28,7 +29,7 @@ import {
 
 export function FactoryLedgerPage() {
   const fiscalYears = useMemo(() => getAvailableFiscalYears(), []);
-  const factoryOptions = useMemo(() => getFactoryList(), []);
+  const [factoryOptions, setFactoryOptions] = useState<string[]>([]);
 
   const [selectedFy, setSelectedFy] = useState<string>("2026-27");
   const [selectedFactory, setSelectedFactory] = useState<string>(factoryOptions[0] || "");
@@ -37,8 +38,17 @@ export function FactoryLedgerPage() {
   const [backendEntries, setBackendEntries] = useState<LedgerTransaction[]>([]);
 
   useEffect(() => {
+    BrandsApi.getFactories()
+      .then((factories: any[]) => setFactoryOptions(factories.map((factory) => factory.name).filter(Boolean)))
+      .catch(() => getFactoryList().then(setFactoryOptions).catch(() => setFactoryOptions([])));
+  }, []);
+
+  useEffect(() => {
     if (!selectedFactory) return;
-    financeService.getLedger(selectedFactory)
+    const startYear = Number(selectedFy.slice(0, 4));
+    const fromDate = `${startYear}-04-01`;
+    const toDate = `${startYear + 1}-04-01`;
+    financeService.getLedger(selectedFactory, fromDate, toDate)
       .then((records: any[]) => setBackendEntries(records.map((record) => ({
         id: record.id,
         date: record.transactionDate || record.date || "",
@@ -51,12 +61,27 @@ export function FactoryLedgerPage() {
         remarks: record.notes || record.remarks,
       }))))
       .catch(() => setBackendEntries([]));
-  }, [selectedFactory]);
+    financeService.getLedgerOpeningBalance(selectedFactory, selectedFy)
+      .then((record) => setOpeningBalanceStr(String(record?.openingBalance || 0)))
+      .catch(() => setOpeningBalanceStr("0"));
+  }, [selectedFactory, selectedFy]);
 
   const openingBalance = parseFloat(openingBalanceStr) || 0;
 
-  const ledgerSummary: FactoryLedgerSummary = useMemo(() => {
-    return computeFactoryLedger(selectedFactory, selectedFy, openingBalance, backendEntries);
+  const [ledgerSummary, setLedgerSummary] = useState<FactoryLedgerSummary>({
+    openingBalance: 0,
+    totalInvoiced: 0,
+    totalReceived: 0,
+    totalDebit: 0,
+    totalCredit: 0,
+    closingBalance: 0,
+    transactions: [],
+  });
+
+  useEffect(() => {
+    computeFactoryLedger(selectedFactory, selectedFy, openingBalance, backendEntries)
+      .then(setLedgerSummary)
+      .catch(() => setLedgerSummary((current) => ({ ...current, transactions: [] })));
   }, [selectedFactory, selectedFy, openingBalance, backendEntries]);
 
   function showToast(msg: string) {
@@ -301,6 +326,14 @@ export function FactoryLedgerPage() {
               type="number"
               value={openingBalanceStr}
               onChange={(e) => setOpeningBalanceStr(e.target.value)}
+              onBlur={() => {
+                if (!selectedFactory) return;
+                financeService.saveLedgerOpeningBalance({
+                  factoryName: selectedFactory,
+                  fiscalYear: selectedFy,
+                  openingBalance: parseFloat(openingBalanceStr) || 0,
+                }).catch(() => showToast("Failed to save opening balance"));
+              }}
               placeholder="0"
               className="w-32 rounded-lg border border-gray-700 bg-black px-3 py-1.5 font-mono text-sm text-white outline-none focus:border-teal-400"
             />

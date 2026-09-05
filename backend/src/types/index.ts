@@ -81,6 +81,7 @@ export interface PurchaseOrder {
   orderDate?: string;
   deliveryDate?: string;
   shipmentMode?: string;
+  specialInstructions?: string;
   status: "Draft" | "Confirmed" | "In Production" | "Shipped" | "Cancelled";
   items?: any[];
   createdAt?: string;

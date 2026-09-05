@@ -1,5 +1,3 @@
-import { loadInvoices } from "./invoice-storage";
-import { calcInvoiceNetAmount } from "./invoice-calculations";
 
 export type LedgerVoucherType = "Sales Invoice" | "Receipt" | "Credit Note" | "Journal Entry" | "Opening Balance";
 
@@ -59,14 +57,8 @@ export const DEFAULT_FACTORIES: string[] = [];
 
 const INITIAL_MOCK_TRANSACTIONS: Record<string, { openingBalance: number; entries: Omit<LedgerTransaction, "balance">[] }> = {};
 
-export function getFactoryList(): string[] {
-  const invoices = loadInvoices();
-  const invoiceFactories = invoices
-    .map((inv) => inv.invoiceTo?.company || inv.brandName)
-    .filter(Boolean);
-
-  const merged = Array.from(new Set([...DEFAULT_FACTORIES, ...invoiceFactories]));
-  return merged.sort((a, b) => a.localeCompare(b));
+export async function getFactoryList(): Promise<string[]> {
+  return [...DEFAULT_FACTORIES].sort((a, b) => a.localeCompare(b));
 }
 
 export function getAvailableFiscalYears(): string[] {
@@ -78,12 +70,12 @@ export function getAvailableFiscalYears(): string[] {
   return years;
 }
 
-export function computeFactoryLedger(
+export async function computeFactoryLedger(
   factoryName: string,
   fiscalYear: string,
   openingBalance: number = 0,
   backendEntries: LedgerTransaction[] = [],
-): FactoryLedgerSummary {
+): Promise<FactoryLedgerSummary> {
   if (!factoryName) {
     return {
       openingBalance: 0,
@@ -111,44 +103,6 @@ export function computeFactoryLedger(
       if (getFiscalYearFromDate(item.date) === fiscalYear) {
         rawEntries.push(item);
       }
-    }
-  }
-
-  // 2. Get from actual invoices matching factory
-  const invoices = loadInvoices();
-  const matchingInvoices = invoices.filter((inv) => {
-    const target = (inv.invoiceTo?.company || inv.brandName || "").trim().toLowerCase();
-    const isFy = getFiscalYearFromDate(inv.date) === fiscalYear;
-    return target === factoryName.trim().toLowerCase() && isFy;
-  });
-
-  for (const inv of matchingInvoices) {
-    const netAmount = calcInvoiceNetAmount(inv);
-    // Add invoice debit
-    rawEntries.push({
-      id: `inv-${inv.id}`,
-      date: inv.date,
-      particulars: `Sales Invoice - ${inv.invoiceNumber} (${inv.brandName || "Garment PO"})`,
-      vchType: "Sales Invoice",
-      vchNo: inv.invoiceNumber,
-      debit: netAmount,
-      credit: null,
-      invoiceId: inv.id,
-    });
-
-    // If invoice has payment registered
-    if (inv.paidAmount && inv.paidAmount > 0 && inv.paymentDate) {
-      rawEntries.push({
-        id: `rec-${inv.id}`,
-        date: inv.paymentDate,
-        particulars: inv.remarks ? `Payment Received - ${inv.remarks}` : "Payment Received",
-        vchType: "Receipt",
-        vchNo: `REC-${inv.invoiceNumber}`,
-        debit: null,
-        credit: inv.paidAmount,
-        remarks: inv.remarks,
-        invoiceId: inv.id,
-      });
     }
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import type { Brand } from "../../../types/brand";
 
 const cardVariants = {
@@ -24,7 +25,14 @@ export function BrandCard({ brand, isSelected = false }: BrandCardProps) {
       }`}
     >
       <div className="w-[75%] h-[75%] flex items-center justify-center overflow-hidden rounded-xl">
-        <img src={brand.image} alt={brand.name} className="w-full h-full object-contain" />
+        <Image
+          src={brand.image}
+          alt={brand.name}
+          fill
+          unoptimized
+          className="object-contain"
+          sizes="165px"
+        />
       </div>
 
       <p className="text-sm font-semibold text-white text-center px-2 uppercase tracking-wide">

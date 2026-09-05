@@ -1,22 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
-  Calendar,
-  ChevronRight,
   FileText,
   Plus,
   Save,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 import { uploadModelFile } from "@/lib/storage";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 
 interface ArtworkRow {
   id: string;
@@ -25,7 +21,14 @@ interface ArtworkRow {
   fileName?: string;
   fileSize?: string;
   fileUrl?: string;
+  fileType?: string;
 }
+
+const createEmptyArtworkRow = (): ArtworkRow => ({
+  id: `art-${Date.now()}`,
+  description: "",
+  receivedDate: "",
+});
 
 function AiIcon() {
   return (
@@ -54,35 +57,37 @@ export default function ModelArtworkPage({
     loadModel();
   }, [modelId]);
 
-  const [rows, setRows] = useState<ArtworkRow[]>([]);
+  const [rows, setRows] = useState<ArtworkRow[]>([createEmptyArtworkRow()]);
 
   const [isSaved, setIsSaved] = useState(false);
+  const [uploads, setUploads] = useState<Record<string, number>>({});
 
   useEffect(() => {
     ModelsApi.getQcInspections(modelId, "artwork")
       .then((records) => {
         const saved = records[0] as any;
-        if (!saved?.remarks) return;
+        if (!saved?.remarks) {
+          setRows([createEmptyArtworkRow()]);
+          return;
+        }
         try {
           const data = JSON.parse(saved.remarks);
-          if (Array.isArray(data.rows)) setRows(data.rows);
+          if (Array.isArray(data.rows)) setRows(data.rows.length ? data.rows : [createEmptyArtworkRow()]);
         } catch {}
       })
       .catch(() => {});
   }, [modelId]);
 
   function handleAddRow() {
-    const newRow: ArtworkRow = {
-      id: `art-${Date.now()}`,
-      description: "",
-      receivedDate: "",
-    };
+    const newRow: ArtworkRow = createEmptyArtworkRow();
     setRows([...rows, newRow]);
   }
 
   function handleDeleteRow(id: string) {
-    if (rows.length <= 1) return;
-    setRows(rows.filter((r) => r.id !== id));
+    setRows((current) => {
+      const remaining = current.filter((r) => r.id !== id);
+      return remaining.length ? remaining : [createEmptyArtworkRow()];
+    });
   }
 
   function handleUpdateRow(id: string, field: keyof ArtworkRow, value: string) {
@@ -96,24 +101,34 @@ export default function ModelArtworkPage({
     if (!files || files.length === 0) return;
     const file = files[0];
     let fileUrl: string | undefined;
+    setUploads((current) => ({ ...current, [id]: 0 }));
     try {
-      fileUrl = (await uploadModelFile(modelId, file)) || undefined;
+      fileUrl = (await uploadModelFile(modelId, file, (progress) => {
+        setUploads((current) => ({ ...current, [id]: progress }));
+      })) || undefined;
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                fileName: file.name,
+                fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+                fileUrl,
+                fileType: file.type,
+              }
+            : r
+        )
+      );
     } catch (error: any) {
       alert(error?.message || "Failed to upload artwork file.");
-      return;
+    } finally {
+      setUploads((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      e.target.value = "";
     }
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              fileName: file.name,
-              fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-              fileUrl,
-            }
-          : r
-      )
-    );
   }
 
   async function handleSave() {
@@ -137,16 +152,6 @@ export default function ModelArtworkPage({
   return (
     <SourcingShell>
       <div className="space-y-6 text-gray-200 pb-16">
-        {/* Top Back Link */}
-        <div>
-          <Link
-            href={`/models/${modelId}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-teal-400 transition"
-          >
-            <ArrowLeft size={14} /> Back to Model
-          </Link>
-        </div>
-
         {/* Save Confirmation Toast */}
         {isSaved && (
           <div className="rounded-xl border border-teal-500/40 bg-teal-500/10 px-4 py-3 text-xs font-semibold text-teal-300 flex items-center justify-between">
@@ -219,6 +224,16 @@ export default function ModelArtworkPage({
                         onChange={(e) => handleFileUpload(row.id, e)}
                       />
                     </label>
+                    {uploads[row.id] !== undefined && (
+                      <div className="mt-1 w-28" aria-live="polite">
+                        <div className="mb-1 flex justify-between text-[10px] text-teal-300">
+                          <span>Uploading</span><span>{uploads[row.id]}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-gray-800">
+                          <div className="h-full bg-teal-400 transition-all" style={{ width: `${uploads[row.id]}%` }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Delete Action */}
@@ -235,11 +250,13 @@ export default function ModelArtworkPage({
 
                   {/* Uploaded File Info Chip */}
                   {row.fileName && (
-                    <div className="w-full pt-1 text-[11px] text-teal-400 flex items-center gap-1.5 font-mono">
-                      <FileText size={12} />
-                      <span>{row.fileName}</span>
+                    <a href={row.fileUrl} target="_blank" rel="noreferrer" className="w-full pt-1 text-[11px] text-teal-400 flex items-center gap-1.5 font-mono hover:text-white">
+                      {row.fileType?.startsWith("image/") && row.fileUrl ? (
+                        <img src={row.fileUrl} alt={row.fileName} className="h-8 w-8 rounded object-cover" />
+                      ) : <FileText size={16} />}
+                      <span className="truncate">{row.fileName}</span>
                       {row.fileSize && <span className="text-gray-500">({row.fileSize})</span>}
-                    </div>
+                    </a>
                   )}
                 </div>
               ))}
@@ -284,11 +301,7 @@ export default function ModelArtworkPage({
               )}
             </div>
 
-            {/* Overdue Badge */}
-            <div className="w-full flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs font-bold text-amber-400">
-              <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-              <span>3 Days overdue!</span>
-            </div>
+            <ModelStatusWidget model={{ id: modelId, daysToHandover: currentModel?.daysToHandover }} />
           </div>
         </div>
 

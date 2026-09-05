@@ -2,8 +2,12 @@ import { api } from "./api";
 
 export const financeService = {
   // Invoices
-  async getInvoices() {
-    return await api.get<any[]>("/finance/invoices");
+  async getInvoices(month?: string) {
+    const query = month ? `?month=${encodeURIComponent(month)}` : "";
+    return await api.get<any[]>(`/finance/invoices${query}`);
+  },
+  async getInvoiceById(id: string) {
+    return await api.get<any>(`/finance/invoices/${id}`);
   },
   async createInvoice(data: any) {
     return await api.post<any>("/finance/invoices", data);
@@ -16,9 +20,20 @@ export const financeService = {
   },
 
   // Factory Ledger
-  async getLedger(factory?: string) {
-    const url = factory ? `/finance/ledger?factory=${encodeURIComponent(factory)}` : "/finance/ledger";
+  async getLedger(factory?: string, fromDate?: string, toDate?: string) {
+    const params = new URLSearchParams();
+    if (factory) params.set("factory", factory);
+    if (fromDate) params.set("fromDate", fromDate);
+    if (toDate) params.set("toDate", toDate);
+    const query = params.toString();
+    const url = query ? `/finance/ledger?${query}` : "/finance/ledger";
     return await api.get<any[]>(url);
+  },
+  async getLedgerOpeningBalance(factory: string, fiscalYear: string) {
+    return await api.get<{ openingBalance: number }>(`/finance/ledger/opening-balance?factory=${encodeURIComponent(factory)}&fiscalYear=${encodeURIComponent(fiscalYear)}`);
+  },
+  async saveLedgerOpeningBalance(data: { factoryName: string; fiscalYear: string; openingBalance: number }) {
+    return await api.put<any>("/finance/ledger/opening-balance", data);
   },
   async createLedgerEntry(data: any) {
     return await api.post<any>("/finance/ledger", data);
@@ -81,6 +96,9 @@ export const financeService = {
   async saveAttendance(data: any) {
     return await api.post<any>("/finance/attendance", data);
   },
+  async updateAttendance(id: string, data: any) {
+    return await api.put<any>(`/finance/attendance/${id}`, data);
+  },
 
   // Salaries
   async getSalaries(month?: string) {
@@ -89,6 +107,9 @@ export const financeService = {
   },
   async createSalary(data: any) {
     return await api.post<any>("/finance/salaries", data);
+  },
+  async updateSalary(id: string, data: any) {
+    return await api.put<any>(`/finance/salaries/${id}`, data);
   },
   async deleteSalary(id: string) {
     return await api.delete(`/finance/salaries/${id}`);
@@ -115,6 +136,21 @@ export const financeService = {
   },
   async saveCompanySettings(data: any) {
     return await api.post<any>("/finance/settings", data);
+  },
+
+  // Factory Commission Rates
+  async getFactoryCommissionRates() {
+    return await api.get<any[]>("/finance/factory-rates");
+  },
+  async saveFactoryCommissionRate(data: any) {
+    const id = data?.id;
+    if (id) {
+      return await api.put<any>(`/finance/factory-rates/${id}`, data);
+    }
+    return await api.post<any>("/finance/factory-rates", data);
+  },
+  async deleteFactoryCommissionRate(id: string) {
+    return await api.delete(`/finance/factory-rates/${id}`);
   },
 };
 

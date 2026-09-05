@@ -49,7 +49,7 @@ export interface LabTestReport {
   reportNumber: string;
   testDate: string;
   sampleDescription: string;
-  tests: { parameter: string; method: string; requirement: string; result: string; pass: boolean }[];
+  tests: { id?: string; parameter: string; method: string; requirement: string; result: string; pass: boolean }[];
   overallResult: "Pass" | "Fail" | "Conditional";
 }
 

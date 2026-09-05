@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 
@@ -22,7 +23,9 @@ export function BrandImageCard({
   onSelect,
 }: BrandImageCardProps) {
   const [hovered, setHovered] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const isActive = selectable ? selected : hovered;
+  const imageUrl = image?.trim();
 
   const className = [
     "group relative block overflow-hidden rounded-xl border bg-gray-900",
@@ -36,12 +39,21 @@ export function BrandImageCard({
   const content = (
     <>
       <div className="aspect-[4/3] w-full overflow-hidden bg-black">
-        <img
-          src={image}
-          alt={name}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          loading="lazy"
-        />
+        {imageUrl && !imageFailed ? (
+          <Image
+            src={imageUrl}
+            alt={name}
+            fill
+            unoptimized
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            sizes="(max-width: 768px) 100vw, 320px"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-950 px-4 text-center text-xs font-semibold uppercase tracking-widest text-gray-500">
+            {name}
+          </div>
+        )}
       </div>
 
       {!selectable ? (

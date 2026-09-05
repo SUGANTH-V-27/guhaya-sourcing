@@ -24,9 +24,17 @@ export const getBrandById = async (req: Request, res: Response) => {
   }
 };
 
+export const getFactories = async (_req: Request, res: Response) => {
+  try {
+    return sendSuccess(res, await brandService.getFactories());
+  } catch (error: any) {
+    return sendError(res, error.message, 500, error);
+  }
+};
+
 export const createBrand = async (req: Request, res: Response) => {
   try {
-    const newBrand = await brandService.create(req.body);
+    const newBrand = await brandService.createWithDetails(req.body);
     return sendSuccess(res, newBrand, "Brand created successfully", 201);
   } catch (error: any) {
     return sendError(res, error.message, 500, error);
@@ -73,5 +81,15 @@ export const saveBrandSubpage = async (req: Request, res: Response) => {
     return sendSuccess(res, saved, "Brand subpage data saved successfully", 201);
   } catch (error: any) {
     return sendError(res, error.message, 500, error);
+  }
+};
+
+export const closeBrandCapr = async (req: Request, res: Response) => {
+  try {
+    const closed = await brandService.closeCaprIssue(req.params.id, req.params.recordId);
+    if (!closed) return sendError(res, "CAPR issue not found", 404);
+    return sendSuccess(res, closed, "CAPR issue closed");
+  } catch (error: any) {
+    return sendError(res, error.message || "Failed to close CAPR issue", 500, error);
   }
 };

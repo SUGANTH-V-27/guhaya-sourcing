@@ -27,6 +27,8 @@ import {
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 import { BrandsApi, BrandEntity } from "@/lib/api/brands-api";
+import { uploadFile } from "@/lib/storage";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 
 interface CategoryItem {
   key: string;
@@ -43,6 +45,7 @@ interface UploadedFile {
   fileName: string;
   fileSize: string;
   uploadDate: string;
+  fileUrl?: string;
 }
 
 export default function ModelFolderPage({
@@ -65,6 +68,14 @@ export default function ModelFolderPage({
   });
 
   const [brand, setBrand] = useState<BrandEntity | null>(null);
+  const [latestPurchaseOrder, setLatestPurchaseOrder] = useState<any | null>(null);
+  const [tnaItemsCount, setTnaItemsCount] = useState(0);
+  const [documentationCount, setDocumentationCount] = useState(0);
+  const [artworkCount, setArtworkCount] = useState(0);
+  const [measurementCount, setMeasurementCount] = useState(0);
+  const [trimmingCount, setTrimmingCount] = useState(0);
+  const [fabricStatusCount, setFabricStatusCount] = useState(0);
+  const [qualityCheckCount, setQualityCheckCount] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -77,6 +88,24 @@ export default function ModelFolderPage({
             const brandData = await BrandsApi.getById(data.brandId);
             setBrand(brandData);
           }
+          const [purchaseOrders, tnaPlans, documentationRecords, artworkRecords, measurementRecords, trimmingRecords, fabricStatusRecords, qcRecords] = await Promise.all([
+            ModelsApi.getPurchaseOrders(id),
+            ModelsApi.getTnaPlans(id),
+            ModelsApi.getQcInspections(id, "documentation"),
+            ModelsApi.getQcInspections(id, "artwork"),
+            ModelsApi.getQcInspections(id, "measurements"),
+            ModelsApi.getTrimmingBoms(id),
+            ModelsApi.getQcInspections(id, "fabric-status"),
+            ModelsApi.getQcInspections(id),
+          ]);
+          setLatestPurchaseOrder(purchaseOrders[0] || null);
+          setTnaItemsCount(Array.isArray(tnaPlans) ? tnaPlans.length : 0);
+          setDocumentationCount(Array.isArray(documentationRecords) ? documentationRecords.length : 0);
+          setArtworkCount(Array.isArray(artworkRecords) ? artworkRecords.length : 0);
+          setMeasurementCount(Array.isArray(measurementRecords) ? measurementRecords.length : 0);
+          setTrimmingCount(Array.isArray(trimmingRecords) ? trimmingRecords.length : 0);
+          setFabricStatusCount(Array.isArray(fabricStatusRecords) ? fabricStatusRecords.length : 0);
+          setQualityCheckCount(Array.isArray(qcRecords) ? qcRecords.length : 0);
         }
       } catch (err) {
         console.warn("Failed to load model details:", err);
@@ -89,6 +118,30 @@ export default function ModelFolderPage({
   const [productionFiles, setProductionFiles] = useState<UploadedFile[]>([]);
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (!id) return;
+    ModelsApi.getQcInspections(id, "daily-production-report")
+      .then((records) => {
+        const latest = records[0] as any;
+        if (!latest?.remarks) return;
+        try {
+          const savedFiles = JSON.parse(latest.remarks);
+          if (Array.isArray(savedFiles)) setProductionFiles(savedFiles);
+        } catch {
+          setProductionFiles([]);
+        }
+      })
+      .catch(() => setProductionFiles([]));
+  }, [id]);
+
+  const purchaseOrderDateLabel = latestPurchaseOrder?.updatedAt || latestPurchaseOrder?.createdAt
+    ? new Date(latestPurchaseOrder.updatedAt || latestPurchaseOrder.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).replace(/\//g, "-")
+    : "Not saved yet";
+
   // 9 Categories matching live site
   const categories: CategoryItem[] = [
     {
@@ -96,50 +149,50 @@ export default function ModelFolderPage({
       title: "PURCHASE ORDERS",
       icon: ClipboardCheck,
       route: `/models/${id}/purchase-order`,
-      subtitle: "Last Saved on 22-08-2026",
-      fileCount: 1,
+      subtitle: latestPurchaseOrder ? `Last Saved on ${purchaseOrderDateLabel}` : "Last Saved on --",
+      fileCount: latestPurchaseOrder ? 1 : 0,
     },
     {
       key: "tna",
       title: "TNA (TIME & ACTION)",
       icon: CalendarClock,
       route: `/models/${id}/tna`,
-      fileCount: 0,
+      fileCount: tnaItemsCount,
     },
     {
       key: "sample_submission",
       title: "SAMPLE SUBMISSION & APPROVAL",
       icon: FileCheck,
       route: `/models/${id}/documentation`,
-      fileCount: 0,
+      fileCount: documentationCount,
     },
     {
       key: "artwork",
       title: "ARTWORK",
       icon: Palette,
       route: `/models/${id}/artwork`,
-      fileCount: 0,
+      fileCount: artworkCount,
     },
     {
       key: "measurements_pattern",
       title: "MEASUREMENTS & PATTERN",
       icon: Ruler,
       route: `/models/${id}/measurements`,
-      fileCount: 0,
+      fileCount: measurementCount,
     },
     {
       key: "trimming_files",
       title: "TRIMMING FILES & LAYOUTS",
       icon: Box,
       route: `/models/${id}/trimming`,
-      fileCount: 0,
+      fileCount: trimmingCount,
     },
     {
       key: "fabric_status",
       title: "FABRIC STATUS",
       icon: Layers,
       route: `/models/${id}/fabric-status`,
-      fileCount: 0,
+      fileCount: fabricStatusCount,
     },
     {
       key: "daily_production_report",
@@ -153,12 +206,9 @@ export default function ModelFolderPage({
       title: "QUALITY CHECK REPORTS",
       icon: ClipboardList,
       route: `/models/${id}/quality-check`,
-      fileCount: 0,
+      fileCount: qualityCheckCount,
     },
   ];
-
-  const isOverdue = (model.daysToHandover ?? 0) <= 0;
-  const overdueDays = Math.abs(model.daysToHandover || 3);
 
   function handleCategoryClick(cat: CategoryItem) {
     if (cat.isModal) {
@@ -168,20 +218,50 @@ export default function ModelFolderPage({
     }
   }
 
-  function handleProductionFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleProductionFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const newFiles: UploadedFile[] = Array.from(files).map((f) => ({
-      id: `file-${Date.now()}-${Math.random()}`,
-      fileName: f.name,
-      fileSize: `${(f.size / 1024).toFixed(1)} KB`,
-      uploadDate: new Date().toISOString().split("T")[0],
-    }));
-    setProductionFiles([...productionFiles, ...newFiles]);
+    try {
+      const newFiles = await Promise.all(
+        Array.from(files).map(async (file): Promise<UploadedFile> => ({
+          id: `file-${Date.now()}-${Math.random()}`,
+          fileName: file.name,
+          fileSize: `${(file.size / 1024).toFixed(1)} KB`,
+          uploadDate: new Date().toISOString().split("T")[0],
+          fileUrl: await uploadFile("daily-production", id, file),
+        }))
+      );
+      const allFiles = [...productionFiles, ...newFiles];
+      setProductionFiles(allFiles);
+      await ModelsApi.saveQcInspection({
+        id: `daily-production-${id}`,
+        modelId: id,
+        inspectionType: "daily-production-report",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify(allFiles),
+      });
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload production file.");
+    }
   }
 
-  function handleDeleteProductionFile(fileId: string) {
-    setProductionFiles(productionFiles.filter((f) => f.id !== fileId));
+  async function handleDeleteProductionFile(fileId: string) {
+    const remainingFiles = productionFiles.filter((f) => f.id !== fileId);
+    setProductionFiles(remainingFiles);
+    try {
+      await ModelsApi.saveQcInspection({
+        id: `daily-production-${id}`,
+        modelId: id,
+        inspectionType: "daily-production-report",
+        inspectionDate: new Date().toISOString(),
+        result: "Pending",
+        remarks: JSON.stringify(remainingFiles),
+      });
+    } catch (error: any) {
+      setProductionFiles(productionFiles);
+      alert(error?.message || "Failed to delete production file record.");
+    }
   }
 
   return (
@@ -231,7 +311,7 @@ export default function ModelFolderPage({
             </div>
 
             {/* Model Image Frame */}
-            <div className="my-5 w-full h-64 rounded-2xl bg-white p-3 flex items-center justify-center overflow-hidden shadow-inner">
+            <div className="my-5 flex h-64 w-full items-center justify-center overflow-hidden rounded-2xl bg-black p-3">
               {model.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -240,25 +320,13 @@ export default function ModelFolderPage({
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
-                <div className="w-full h-full bg-black rounded-xl flex items-center justify-center">
-                  <span className="font-black text-xl tracking-widest bg-gradient-to-r from-teal-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">
-                    CHAOS
-                  </span>
+                <div className="flex h-full w-full items-center justify-center rounded-xl border border-gray-800 text-xs uppercase tracking-widest text-gray-500">
+                  No image
                 </div>
               )}
             </div>
 
-            {/* Overdue / Handover Badge */}
-            <div
-              className={`w-full flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold ${
-                isOverdue
-                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-400"
-                  : "bg-teal-500/10 border border-teal-500/30 text-teal-400"
-              }`}
-            >
-              <AlertTriangle size={14} className={isOverdue ? "text-amber-400" : "text-teal-400"} />
-              <span>{isOverdue ? `${overdueDays} Days overdue!` : `${model.daysToHandover} Days to handover!`}</span>
-            </div>
+            <ModelStatusWidget model={model} />
           </div>
         </div>
 

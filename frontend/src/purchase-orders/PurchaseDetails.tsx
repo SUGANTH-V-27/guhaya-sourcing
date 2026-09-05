@@ -1,38 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { PurchaseOrderDraft } from "./PurchaseOrderPage";
 
-const PurchaseDetails = () => {
-  const [rows, setRows] = useState([{ }]);
+type PurchaseDetailsProps = {
+  draft: PurchaseOrderDraft;
+  updateDraft: (updates: Partial<PurchaseOrderDraft>) => void;
+};
 
-  const addRow = () => setRows([...rows, {}]);
-
-  const deleteRow = (index: number) => {
-    setRows(rows.filter((_, i) => i !== index));
-  };
+const PurchaseDetails = ({ draft, updateDraft }: PurchaseDetailsProps) => {
 
   return (
     <div className="section">
 
       <h2>Purchase Order Details</h2>
 
-      <button className="btn" onClick={addRow}>
-        + ADD ORDER
-      </button>
-
-      {rows.map((_, index) => (
-        <div key={index} className="row">
-
-          <input placeholder="Received Date" />
-          <input placeholder="Purchase Order" />
-          <input placeholder="Comments" />
-
-          <button className="delete-btn" onClick={() => deleteRow(index)}>
-            🗑
-          </button>
-
-        </div>
-      ))}
+      <div className="row">
+        <input type="date" value={draft.orderDate} onChange={(e) => updateDraft({ orderDate: e.target.value })} />
+        <input placeholder="Purchase Order" value={draft.poNumber} onChange={(e) => updateDraft({ poNumber: e.target.value })} />
+        <input placeholder="Comments" value={draft.specialInstructions} onChange={(e) => updateDraft({ specialInstructions: e.target.value })} />
+      </div>
 
     </div>
   );

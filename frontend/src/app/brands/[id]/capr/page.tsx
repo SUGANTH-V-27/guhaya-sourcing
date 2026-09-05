@@ -43,7 +43,7 @@ export default function BrandCAPRPage({
           BrandsApi.getCaprIssues(brandId),
         ]);
         if (brandData) setBrand(brandData);
-        if (caprData && caprData.length > 0) setCaprList(caprData);
+        setCaprList(caprData || []);
       } catch (err) {
         console.warn("Failed to load CAPR data:", err);
       }
@@ -84,7 +84,7 @@ export default function BrandCAPRPage({
     return matchSev && matchStat && matchSearch;
   });
 
-  function handleCreateCapr() {
+  async function handleCreateCapr() {
     if (!formTitle.trim() || !formDesc.trim()) return;
     const newRecord: CAPRRecord = {
       id: `capr-${Date.now()}`,
@@ -103,26 +103,30 @@ export default function BrandCAPRPage({
       status: "Open",
       assignedAuditor: formAuditor,
     };
-    setCaprList([newRecord, ...caprList]);
+    try {
+      await BrandsApi.saveSubpageData(brandId, "capr", newRecord);
+      setCaprList((prev) => [newRecord, ...prev]);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save CAPR record.");
+      return;
+    }
     setIsModalOpen(false);
     setFormTitle("");
     setFormDesc("");
   }
 
-  function handleCloseCapr(id: string) {
-    setCaprList((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: "Closed",
-              closureDate: new Date().toISOString().split("T")[0],
-            }
-          : c
-      )
-    );
-    if (selectedCapr?.id === id) {
-      setSelectedCapr((prev) => (prev ? { ...prev, status: "Closed", closureDate: new Date().toISOString().split("T")[0] } : null));
+  async function handleCloseCapr(id: string) {
+    const closureDate = new Date().toISOString().split("T")[0];
+    try {
+      await BrandsApi.closeCaprIssue(brandId, id);
+      setCaprList((prev) =>
+        prev.map((c) => c.id === id ? { ...c, status: "Closed", closureDate } : c)
+      );
+      if (selectedCapr?.id === id) {
+        setSelectedCapr((prev) => (prev ? { ...prev, status: "Closed", closureDate } : null));
+      }
+    } catch (error: any) {
+      alert(error?.message || "Failed to close CAPR issue.");
     }
   }
 

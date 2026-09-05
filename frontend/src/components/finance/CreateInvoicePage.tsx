@@ -17,13 +17,13 @@ import {
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandsApi } from "@/lib/api/brands-api";
 import {
-  buildMockCommissionPos,
   COMMISSION_BRANDS,
   formatInr,
   formatUsd,
   getFactoryDetail,
   type CommissionPo,
 } from "@/lib/finance/commission-data";
+import financeService from "../../../services/finance.service";
 import {
   addInvoice,
   getInvoiceById,
@@ -49,14 +49,6 @@ const inputClass =
 
 const sectionClass = "rounded-xl border border-gray-700 bg-gray-900 p-6";
 
-const BRAND_OPTIONS = [
-  ...COMMISSION_BRANDS.map((b) => b.name),
-  "SOXO",
-  "TERA",
-  "ASTRA",
-  "KORVA",
-];
-
 function newCommissionRow(partial?: Partial<InvoiceCommissionRow>): InvoiceCommissionRow {
   return {
     id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -64,9 +56,9 @@ function newCommissionRow(partial?: Partial<InvoiceCommissionRow>): InvoiceCommi
     styleNo: "",
     poNo: "",
     factory: "",
-    quantity: 1000,
-    originalQuantity: 1000,
-    originalAmountUsd: 10000,
+    quantity: 0,
+    originalQuantity: 0,
+    originalAmountUsd: 0,
     conversion: 90,
     commissionPct: 2,
     isManual: true,
@@ -108,7 +100,7 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceNumberTouched, setInvoiceNumberTouched] = useState(false);
   const [brandName, setBrandName] = useState("");
-  const [hsnCode, setHsnCode] = useState("");
+  const [hsnCode, setHsnCode] = useState("9988");
   const [commissionRows, setCommissionRows] = useState<InvoiceCommissionRow[]>([]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([newLineItem()]);
   const [invoiceTo, setInvoiceTo] = useState({
@@ -119,47 +111,72 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     code: "",
   });
   const [bankDiscountPct, setBankDiscountPct] = useState(0);
-  const [cgstPct, setCgstPct] = useState(0);
-  const [sgstPct, setSgstPct] = useState(0);
+  const [cgstPct, setCgstPct] = useState(2.5);
+  const [sgstPct, setSgstPct] = useState(2.5);
   const [showPoModal, setShowPoModal] = useState(false);
   const [poSearch, setPoSearch] = useState("");
   const [modalSelectedIds, setModalSelectedIds] = useState<string[]>([]);
   const [invoiceNumberError, setInvoiceNumberError] = useState("");
   const [loaded, setLoaded] = useState(!isEdit);
+  const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
+  const [factoryDetails, setFactoryDetails] = useState<Record<string, { name: string; address: string; gstin: string; state: string; code: string }>>({});
+
+  useEffect(() => {
+    Promise.all([financeService.getCommissions(), BrandsApi.getAll(), BrandsApi.getFactories()])
+      .then(async ([commissions, brands, factories]) => {
+        setUnpaidPos((commissions || []).filter((po: CommissionPo) => po.status === "unpaid"));
+        setBrandOptions(brands.map((brand) => ({ id: brand.id, name: brand.name })));
+        const detailEntries = (factories || []).map((detail: any) => {
+          const factoryName = detail.name || "";
+          return [factoryName, {
+            name: detail.name || factoryName,
+            address: detail.address || "",
+            gstin: detail.gstin || "",
+            state: detail.state || "",
+            code: detail.stateCode || detail.code || "",
+          }] as const;
+        });
+        setFactoryDetails(Object.fromEntries(detailEntries));
+      })
+      .catch((error) => console.warn("Failed to load invoice sources:", error));
+  }, []);
 
   useEffect(() => {
     if (!editId) return;
-    const existing = getInvoiceById(editId);
-    if (!existing) {
-      router.replace("/finance/invoices");
-      return;
-    }
-    setInvoiceNumber(existing.invoiceNumber);
-    setInvoiceNumberTouched(true);
-    setDate(existing.date);
-    setBrandName(existing.brandName);
-    setHsnCode(existing.hsnCode);
-    setCommissionRows(existing.commissionRows);
-    setLineItems(existing.lineItems.length ? existing.lineItems : [newLineItem()]);
-    setInvoiceTo(existing.invoiceTo);
-    setBankDiscountPct(existing.bankDiscountPct);
-    setCgstPct(existing.cgstPct);
-    setSgstPct(existing.sgstPct);
-    setLoaded(true);
+    getInvoiceById(editId).then((existing) => {
+      if (!existing) {
+        router.replace("/finance/invoices");
+        return;
+      }
+      setInvoiceNumber(existing.invoiceNumber);
+      setInvoiceNumberTouched(true);
+      setDate(existing.date);
+      setBrandName(existing.brandName);
+      setHsnCode(existing.hsnCode);
+      setCommissionRows(existing.commissionRows);
+      setLineItems(existing.lineItems.length ? existing.lineItems : [newLineItem()]);
+      setInvoiceTo(existing.invoiceTo);
+      setBankDiscountPct(existing.bankDiscountPct);
+      setCgstPct(existing.cgstPct);
+      setSgstPct(existing.sgstPct);
+      setLoaded(true);
+    }).catch(() => router.replace("/finance/invoices"));
   }, [editId, router]);
 
   useEffect(() => {
     if (invoiceNumberTouched) return;
     const d = new Date(date);
     const fy = getFinancialYearSuffix(d);
-    const seq = getNextInvoiceSeq(getInvoiceNumbers(), fy);
-    setInvoiceNumber(formatInvoiceNumber(seq, fy));
+    getInvoiceNumbers().then((numbers) => {
+      const seq = getNextInvoiceSeq(numbers, fy);
+      setInvoiceNumber(formatInvoiceNumber(seq, fy));
+    });
   }, [date, invoiceNumberTouched]);
 
   useEffect(() => {
     const factory = commissionRows.find((r) => r.factory)?.factory;
     if (!factory) return;
-    const detail = getFactoryDetail(factory);
+    const detail = factoryDetails[factory] || getFactoryDetail(factory);
     setInvoiceTo({
       company: detail.name,
       address: detail.address,
@@ -167,13 +184,15 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
       state: detail.state,
       code: detail.code,
     });
-  }, [commissionRows]);
+  }, [commissionRows, factoryDetails]);
 
   const lockedFactory = useMemo(() => {
+    const existingFactory = commissionRows.find((row) => row.factory)?.factory;
+    if (existingFactory) return existingFactory;
     if (modalSelectedIds.length === 0) return null;
     const first = unpaidPos.find((p) => p.id === modalSelectedIds[0]);
     return first?.factory ?? null;
-  }, [modalSelectedIds, unpaidPos]);
+  }, [commissionRows, modalSelectedIds, unpaidPos]);
 
   const modalPos = useMemo(() => {
     const alreadyAdded = new Set(commissionRows.map((r) => r.poId).filter(Boolean));
@@ -251,7 +270,7 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
     setShowPoModal(false);
   }
 
-  function validateInvoiceNumber(): boolean {
+  async function validateInvoiceNumber(): Promise<boolean> {
     const parsed = invoiceNumber.trim();
     if (!parsed) {
       setInvoiceNumberError("Invoice number is required.");
@@ -261,11 +280,9 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
       setInvoiceNumberError("Use format GS/001/26-27");
       return false;
     }
-    if (isInvoiceNumberTaken(
-      parsed,
-      getInvoiceNumbers(),
-      isEdit ? getInvoiceById(editId!)?.invoiceNumber : undefined,
-    )) {
+    const numbers = await getInvoiceNumbers();
+    const current = isEdit && editId ? await getInvoiceById(editId) : undefined;
+    if (isInvoiceNumberTaken(parsed, numbers, current?.invoiceNumber)) {
       setInvoiceNumberError("This invoice number is already used.");
       return false;
     }
@@ -275,7 +292,7 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
 
   async function handleSave() {
     if (!date) return;
-    if (!validateInvoiceNumber()) return;
+    if (!(await validateInvoiceNumber())) return;
 
     if (isEdit && editId) {
       try {
@@ -394,8 +411,10 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
                   if (!invoiceNumberTouched) {
                     const d = new Date(e.target.value);
                     const fy = getFinancialYearSuffix(d);
-                    const seq = getNextInvoiceSeq(getInvoiceNumbers(), fy);
-                    setInvoiceNumber(formatInvoiceNumber(seq, fy));
+                    getInvoiceNumbers().then((numbers) => {
+                      const seq = getNextInvoiceSeq(numbers, fy);
+                      setInvoiceNumber(formatInvoiceNumber(seq, fy));
+                    });
                   }
                 }}
                 className={inputClass}
@@ -405,8 +424,8 @@ export function CreateInvoicePage({ editId }: { editId?: string }) {
               <label className="mb-1 block text-xs text-gray-400">Brand Name</label>
               <select value={brandName} onChange={(e) => setBrandName(e.target.value)} className={inputClass}>
                 <option value="">Select brand...</option>
-                {BRAND_OPTIONS.map((name) => (
-                  <option key={name} value={name}>{name}</option>
+                {brandOptions.map((brand) => (
+                  <option key={brand.id} value={brand.name}>{brand.name}</option>
                 ))}
               </select>
             </div>

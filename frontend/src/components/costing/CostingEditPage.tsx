@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -11,8 +11,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { BrandsApi, type BrandEntity } from "@/lib/api/brands-api";
 import {
-  getCostingById,
+  calcFabricCostSummary,
+  calcGarmentSectionCost,
+  calcTotalCostSheet,
+  getCostingByIdAsync,
   saveOrUpdateCosting,
   type CostSheet,
 } from "@/lib/costing/costing-data";
@@ -38,6 +42,13 @@ interface GarmentSection {
   overheadPct: number;
 }
 
+let costingIdSeed = 0;
+
+function makeStableCostingId(prefix: string) {
+  costingIdSeed += 1;
+  return `${prefix}-${costingIdSeed}`;
+}
+
 function defaultFabricRows(prefix: string): CostItemRow[] {
   return [
     { id: `${prefix}-f1`, item: "Yarn", detail: "", value: 0 },
@@ -58,7 +69,7 @@ function defaultGarmentRows(prefix: string): CostItemRow[] {
 }
 
 function createSection(index: number): GarmentSection {
-  const prefix = `g${index + 1}-${Date.now()}`;
+  const prefix = `g${index + 1}-${makeStableCostingId("section")}`;
   return {
     id: prefix,
     name: `Garment ${index + 1}`,
@@ -69,16 +80,70 @@ function createSection(index: number): GarmentSection {
   };
 }
 
+function toEditorSection(section: any, index: number): GarmentSection {
+  const prefix = section.id || `g${index + 1}-${makeStableCostingId("section")}`;
+  return {
+    id: prefix,
+    name: section.name || section.sectionName || `Garment ${index + 1}`,
+    fabricRows: (section.fabricRows || section.fabricCostRows || []).map((row: any, rowIndex: number) => ({
+      id: row.id || `${prefix}-f${rowIndex + 1}`,
+      item: row.item || row.label || "Process",
+      detail: row.detail || "",
+      value: Number(row.value) || 0,
+    })),
+    wastagePct: Number(section.wastagePct ?? section.wastagePercent) || 0,
+    garmentRows: (section.garmentRows || section.garmentCostRows || []).map((row: any, rowIndex: number) => ({
+      id: row.id || `${prefix}-g${rowIndex + 1}`,
+      item: row.item || row.label || "Item",
+      detail: row.detail || "",
+      value: Number(row.value) || 0,
+    })),
+    overheadPct: Number(section.overheadPct ?? section.overheadsProfitPercent) || 0,
+  };
+}
+
+function toCostingSections(sections: GarmentSection[]) {
+  return sections.map((section) => ({
+    id: section.id,
+    sectionName: section.name,
+    fabricCostRows: section.fabricRows.map((row) => ({
+      id: row.id,
+      label: row.item,
+      detail: row.detail,
+      value: Number(row.value) || 0,
+    })),
+    wastagePercent: Number(section.wastagePct) || 0,
+    garmentCostRows: section.garmentRows.map((row) => ({
+      id: row.id,
+      label: row.item,
+      detail: row.detail,
+      value: Number(row.value) || 0,
+    })),
+    overheadsProfitPercent: Number(section.overheadPct) || 0,
+  }));
+}
+
 function calcSectionTotals(sec: GarmentSection) {
-  const fabricBase = sec.fabricRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
-  const wastageAmount = Math.round(fabricBase * (sec.wastagePct / 100) * 100) / 100;
-  const totalFabricCost = fabricBase + wastageAmount;
+  const fabricRows = sec.fabricRows.map((row) => ({ id: row.id, label: row.item, detail: row.detail, value: row.value }));
+  const garmentRows = sec.garmentRows.map((row) => ({ id: row.id, label: row.item, detail: row.detail, value: row.value }));
+  const fabricSummary = calcFabricCostSummary(fabricRows, sec.wastagePct);
+  const garmentCost = calcGarmentSectionCost({
+    id: sec.id,
+    sectionName: sec.name,
+    fabricCostRows: fabricRows,
+    wastagePercent: sec.wastagePct,
+    garmentCostRows: garmentRows,
+    overheadsProfitPercent: sec.overheadPct,
+  });
 
-  const garmentBase = sec.garmentRows.reduce((s, r) => s + (Number(r.value) || 0), 0);
-  const overheadAmount = Math.round(garmentBase * (sec.overheadPct / 100) * 100) / 100;
-  const totalCost = garmentBase + overheadAmount;
-
-  return { fabricBase, wastageAmount, totalFabricCost, garmentBase, overheadAmount, totalCost };
+  return {
+    fabricBase: fabricSummary.subtotal,
+    wastageAmount: fabricSummary.wastageAmount,
+    totalFabricCost: fabricSummary.totalPerKg,
+    garmentBase: garmentCost.manufacturingTotal,
+    overheadAmount: garmentCost.overheadsProfitAmount,
+    totalCost: garmentCost.sectionTotalInr,
+  };
 }
 
 export function CostingEditPage({ costingId, isNew }: Props) {
@@ -94,9 +159,41 @@ export function CostingEditPage({ costingId, isNew }: Props) {
   const [styleImage, setStyleImage] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number>(0);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
+  const [isSaving, setIsSaving] = useState(false);
+  const [brands, setBrands] = useState<BrandEntity[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
+
+  function showToast(message: string, type: "success" | "error" | "info" = "success") {
+    setToastType(type);
+    setToastMsg(message);
+    window.clearTimeout((showToast as any)._timer);
+    (showToast as any)._timer = window.setTimeout(() => setToastMsg(null), 3600);
+  }
 
   // ── Per-Garment Sections ───────────────────────────────────────────────────
   const [sections, setSections] = useState<GarmentSection[]>([createSection(0)]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadBrands() {
+      try {
+        const liveBrands = await BrandsApi.getAll();
+        if (active) setBrands(liveBrands.filter((item) => item.name.trim()));
+      } catch (error: any) {
+        if (active) setBrandsError(error?.message || "Failed to load brands.");
+      } finally {
+        if (active) setBrandsLoading(false);
+      }
+    }
+
+    loadBrands();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Sync sections array when noOfGarments changes
   useEffect(() => {
@@ -117,17 +214,25 @@ export function CostingEditPage({ costingId, isNew }: Props) {
 
   // Load existing if editing
   useEffect(() => {
-    if (costingId && !isNew) {
-      const existing = getCostingById(costingId);
+    if (!costingId || isNew) return;
+    const id = costingId;
+    async function loadCosting() {
+      const existing = await getCostingByIdAsync(id);
       if (existing) {
         setBrand(existing.brand || "");
         setCostingName(existing.name || "");
         setFabricComposition(existing.fabricComposition || "");
+        setFabricType(existing.fabricType || "");
         setGsm(existing.gsm || "");
         setUsdRate(existing.exchangeRate || 0);
         if (existing.image) setStyleImage(existing.image);
+        if (existing.garmentSections.length > 0) {
+          setSections(existing.garmentSections.map(toEditorSection));
+          setNoOfGarments(existing.garmentSections.length);
+        }
       }
     }
+    loadCosting().catch((error) => console.warn("Failed to load costing:", error));
   }, [costingId, isNew]);
 
   // ── Grand Totals ───────────────────────────────────────────────────────────
@@ -144,19 +249,19 @@ export function CostingEditPage({ costingId, isNew }: Props) {
   }, [grandTotal, usdRate]);
 
   // ── Section Mutation Helpers ───────────────────────────────────────────────
-  function updateSectionName(idx: number, name: string) {
+  const updateSectionName = useCallback((idx: number, name: string) => {
     setSections((prev) => prev.map((s, i) => (i === idx ? { ...s, name } : s)));
-  }
+  }, []);
 
-  function updateSectionWastage(idx: number, pct: number) {
+  const updateSectionWastage = useCallback((idx: number, pct: number) => {
     setSections((prev) => prev.map((s, i) => (i === idx ? { ...s, wastagePct: pct } : s)));
-  }
+  }, []);
 
-  function updateSectionOverhead(idx: number, pct: number) {
+  const updateSectionOverhead = useCallback((idx: number, pct: number) => {
     setSections((prev) => prev.map((s, i) => (i === idx ? { ...s, overheadPct: pct } : s)));
-  }
+  }, []);
 
-  function addFabricRow(idx: number) {
+  const addFabricRow = useCallback((idx: number) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === idx
@@ -164,15 +269,15 @@ export function CostingEditPage({ costingId, isNew }: Props) {
               ...s,
               fabricRows: [
                 ...s.fabricRows,
-                { id: `${s.id}-f${Date.now()}`, item: "Process", detail: "—", value: 0 },
+                { id: `${s.id}-f${makeStableCostingId("fabric")}`, item: "Process", detail: "—", value: 0 },
               ],
             }
           : s
       )
     );
-  }
+  }, []);
 
-  function deleteFabricRow(secIdx: number, rowId: string) {
+  const deleteFabricRow = useCallback((secIdx: number, rowId: string) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === secIdx
@@ -180,9 +285,9 @@ export function CostingEditPage({ costingId, isNew }: Props) {
           : s
       )
     );
-  }
+  }, []);
 
-  function updateFabricRow(secIdx: number, rowId: string, field: keyof CostItemRow, val: any) {
+  const updateFabricRow = useCallback((secIdx: number, rowId: string, field: keyof CostItemRow, val: any) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === secIdx
@@ -195,9 +300,9 @@ export function CostingEditPage({ costingId, isNew }: Props) {
           : s
       )
     );
-  }
+  }, []);
 
-  function addGarmentRow(idx: number) {
+  const addGarmentRow = useCallback((idx: number) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === idx
@@ -205,15 +310,15 @@ export function CostingEditPage({ costingId, isNew }: Props) {
               ...s,
               garmentRows: [
                 ...s.garmentRows,
-                { id: `${s.id}-g${Date.now()}`, item: "Item", detail: "—", value: 0 },
+                { id: `${s.id}-g${makeStableCostingId("garment")}`, item: "Item", detail: "—", value: 0 },
               ],
             }
           : s
       )
     );
-  }
+  }, []);
 
-  function deleteGarmentRow(secIdx: number, rowId: string) {
+  const deleteGarmentRow = useCallback((secIdx: number, rowId: string) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === secIdx
@@ -221,9 +326,9 @@ export function CostingEditPage({ costingId, isNew }: Props) {
           : s
       )
     );
-  }
+  }, []);
 
-  function updateGarmentRow(secIdx: number, rowId: string, field: keyof CostItemRow, val: any) {
+  const updateGarmentRow = useCallback((secIdx: number, rowId: string, field: keyof CostItemRow, val: any) => {
     setSections((prev) =>
       prev.map((s, i) =>
         i === secIdx
@@ -236,41 +341,68 @@ export function CostingEditPage({ costingId, isNew }: Props) {
           : s
       )
     );
-  }
+  }, []);
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setStyleImage(url);
+    const reader = new FileReader();
+    reader.onload = () => setStyleImage(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
   }
 
   async function handleSave() {
-    const costSheet: CostSheet = {
-      id: costingId || `cost-${Date.now()}`,
-      brand,
-      name: costingName.trim() || "Untitled Costing",
-      styleNo: costingName.trim() || `STYLE-${Date.now().toString().slice(-4)}`,
-      fabricComposition,
-      gsm,
-      currency: "USD",
-      exchangeRate: usdRate,
-      targetQuantity: 0,
-      garmentCount: noOfGarments,
-      garmentSections: [],
-      notes: "",
-      usdFinalPrice: finalPriceUsd,
-      image: styleImage || undefined,
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
-    };
-    await saveOrUpdateCosting(costSheet);
-    setToastMsg("Costing saved!");
-    setTimeout(() => router.push("/costing"), 1000);
+    setIsSaving(true);
+    try {
+      const garmentSections = toCostingSections(sections);
+      const totals = calcTotalCostSheet({
+        id: costingId || "draft",
+        brand,
+        name: costingName.trim() || "Untitled Costing",
+        styleNo: costingName.trim() || "STYLE",
+        fabricComposition,
+        fabricType,
+        gsm,
+        currency: "USD",
+        exchangeRate: usdRate,
+        garmentCount: noOfGarments,
+        garmentSections,
+        createdAt: "",
+        updatedAt: "",
+      });
+      const costSheet: CostSheet = {
+        id: costingId || `cost-${Date.now()}`,
+        brand,
+        name: costingName.trim() || "Untitled Costing",
+        styleNo: costingName.trim() || `STYLE-${Date.now().toString().slice(-4)}`,
+        fabricComposition,
+        gsm,
+        currency: "USD",
+        exchangeRate: usdRate,
+        targetQuantity: 0,
+        garmentCount: noOfGarments,
+        garmentSections,
+        notes: "",
+        totalCost: totals.totalInr,
+        totalFobPrice: totals.totalConverted,
+        usdFinalPrice: totals.totalConverted,
+        image: styleImage || undefined,
+        createdAt: new Date().toISOString().split("T")[0],
+        updatedAt: new Date().toISOString().split("T")[0],
+      };
+      await saveOrUpdateCosting(costSheet);
+      showToast("Costing saved successfully");
+      setTimeout(() => router.push("/costing"), 1000);
+    } catch (error: any) {
+      console.error("Failed to save costing:", error);
+      showToast(error?.message || "Could not save costing", "error");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   // ── Table Component (reused for fabric & garment) ──────────────────────────
-  function CostTable({
+  const CostTable = React.memo(function CostTable({
     rows,
     onUpdate,
     onDelete,
@@ -342,15 +474,16 @@ export function CostingEditPage({ costingId, isNew }: Props) {
         </button>
       </div>
     );
-  }
+  });
 
   return (
     <SourcingShell>
       <div className="max-w-6xl mx-auto space-y-6 pb-24 text-gray-200">
         {/* Toast */}
         {toastMsg && (
-          <div className="fixed bottom-24 right-6 z-50 rounded-lg bg-teal-500 px-4 py-2.5 text-xs font-bold text-black shadow-xl">
-            {toastMsg}
+          <div className="guhaya-toast" role="status" aria-live="polite">
+            <span className={toastType === "error" ? "text-red-300" : toastType === "info" ? "text-amber-300" : "text-emerald-300"}>{toastMsg}</span>
+            <button type="button" onClick={() => setToastMsg(null)} aria-label="Dismiss notification">×</button>
           </div>
         )}
 
@@ -371,14 +504,22 @@ export function CostingEditPage({ costingId, isNew }: Props) {
                   <select
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
+                    disabled={brandsLoading}
                     className="w-full appearance-none rounded-lg border border-gray-800 bg-[#0d1414] px-3.5 py-2 text-xs text-white outline-none focus:border-teal-400"
                   >
-                    {["Sinsay", "Reserved", "Mohito", "Cropp", "House", "SOXO"].map((b) => (
-                      <option key={b} value={b}>{b}</option>
+                    <option value="">
+                      {brandsLoading ? "Loading brands..." : brandsError ? "Unable to load brands" : "Select a brand"}
+                    </option>
+                    {brand && !brands.some((item) => item.name === brand) && (
+                      <option value={brand}>{brand}</option>
+                    )}
+                    {brands.map((item) => (
+                      <option key={item.id} value={item.name}>{item.name}</option>
                     ))}
                   </select>
                   <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
+                {brandsError && <p className="mt-1 text-[11px] text-red-300">{brandsError}</p>}
               </div>
               <div>
                 <label className="text-xs text-gray-400 font-semibold block mb-1">Costing Name</label>
@@ -618,9 +759,10 @@ export function CostingEditPage({ costingId, isNew }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-lg bg-[#00BFA5] px-7 py-2 text-xs font-bold text-black hover:bg-[#0cae9d] transition shadow-xl"
+            disabled={isSaving || brandsLoading}
+            className="guhaya-btn px-7 py-2 text-xs disabled:opacity-60"
           >
-            Save Costing
+            {isSaving ? "Saving..." : "Save Costing"}
           </button>
         </div>
       </div>

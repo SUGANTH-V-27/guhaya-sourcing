@@ -29,6 +29,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
 import { uploadModelFile } from "@/lib/storage";
 
@@ -155,6 +156,7 @@ export default function FinalInspectionPage({
 
   // ── Style Pictures State ───────────────────────────────────────────────────
   const [stylePhotos, setStylePhotos] = useState<string[]>([]);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState(0);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleOpenPoModal() {
@@ -186,8 +188,9 @@ export default function FinalInspectionPage({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      const url = await uploadModelFile(modelId, file, setPhotoUploadProgress);
       setStylePhotos((current) => [...current, url]);
+      setPhotoUploadProgress(100);
     } catch (error: any) {
       alert(error?.message || "Failed to upload inspection photo.");
     }
@@ -224,7 +227,7 @@ export default function FinalInspectionPage({
         inspectorName,
         inspectionDate,
         result: overallConclusion,
-        remarks: sections.map((section) => `${section.title}: ${section.status}${section.notes ? ` - ${section.notes}` : ""}`).join("; "),
+        remarks: JSON.stringify(newReport),
         photos: stylePhotos,
       });
       setReports([newReport, ...reports]);
@@ -750,6 +753,7 @@ export default function FinalInspectionPage({
                       </div>
                     )}
                   </div>
+                  {currentModel && <ModelStatusWidget model={currentModel} compact />}
                   <div className="w-full bg-black/80 py-1 text-center text-[10px] font-bold text-white rounded-md mt-1">
                     Model Image
                   </div>
@@ -776,7 +780,7 @@ export default function FinalInspectionPage({
                 {/* Add Photo Drop Zone */}
                 <label className="flex flex-col items-center justify-center w-48 h-52 rounded-2xl border-2 border-dashed border-teal-900/60 bg-black/40 hover:border-teal-500/50 hover:bg-black transition cursor-pointer space-y-2 group">
                   <Upload size={22} className="text-teal-400 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-bold text-teal-400">Add Photo</span>
+                  <span className="text-xs font-bold text-teal-400">{photoUploadProgress > 0 && photoUploadProgress < 100 ? `Uploading ${photoUploadProgress}%` : "Add Photo"}</span>
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                 </label>
               </div>

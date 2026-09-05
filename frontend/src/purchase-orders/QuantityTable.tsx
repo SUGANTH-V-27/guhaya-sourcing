@@ -1,45 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { PurchaseOrderDraft } from "./PurchaseOrderPage";
 
-const QuantityTable = () => {
-  const [rows, setRows] = useState([{}]);
+type QuantityTableProps = {
+  draft: PurchaseOrderDraft;
+  updateDraft: (updates: Partial<PurchaseOrderDraft>) => void;
+};
 
-  const addRow = () => setRows([...rows, {}]);
-
-  const deleteRow = (index: number) => {
-    setRows(rows.filter((_, i) => i !== index));
-  };
+const QuantityTable = ({ draft, updateDraft }: QuantityTableProps) => {
 
   return (
     <div className="section">
 
       <h2>Quantity Details</h2>
 
-      <button className="btn" onClick={addRow}>
-        + ADD ORDER
-      </button>
-
       <div className="table-container">
-
-        {rows.map((_, index) => (
-          <div key={index} className="table-row">
-
-            <input placeholder="PO No" />
-            <input placeholder="DC Type" />
-            <input placeholder="DC Port" />
-            <input placeholder="Size1" />
-            <input placeholder="Size2" />
-            <input placeholder="Total Qty" />
-            <input placeholder="HOD" />
-            <input placeholder="Sailing" />
-
-            <button className="delete-btn" onClick={() => deleteRow(index)}>
-              🗑
-            </button>
-
-          </div>
-        ))}
+        <div className="table-row">
+          <input placeholder="PO No" value={draft.poNumber} onChange={(e) => updateDraft({ poNumber: e.target.value })} />
+          <input placeholder="DC Type" value={draft.dcType} onChange={(e) => updateDraft({ dcType: e.target.value })} />
+          <input placeholder="DC Port" value={draft.dcPort} onChange={(e) => updateDraft({ dcPort: e.target.value })} />
+          <input placeholder="Size1" value={draft.size1} onChange={(e) => updateDraft({ size1: e.target.value })} />
+          <input placeholder="Size2" value={draft.size2} onChange={(e) => updateDraft({ size2: e.target.value })} />
+          <input placeholder="Total Qty" type="number" value={draft.totalQty} onChange={(e) => updateDraft({ totalQty: e.target.value })} />
+          <input placeholder="HOD" value={draft.hod} onChange={(e) => updateDraft({ hod: e.target.value })} />
+          <input placeholder="Sailing" value={draft.sailing} onChange={(e) => updateDraft({ sailing: e.target.value })} />
+        </div>
 
       </div>
 

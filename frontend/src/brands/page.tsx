@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 export default function BrandListingPage() {
   return (
@@ -19,9 +20,11 @@ export default function BrandListingPage() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
         >
-          <img
+          <Image
             src="/guhaya_title.png"
             alt="Guhaya Sourcing Title"
+            width={320}
+            height={80}
             className="h-20 w-auto object-contain mx-auto"
           />
         </motion.div>

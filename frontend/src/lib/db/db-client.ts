@@ -45,8 +45,16 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
     this.tableName = tableName;
   }
 
-  private apiError(res: Response): Error & { apiError: true } {
-    const error = new Error(`Backend request failed for ${this.tableName}: HTTP ${res.status}`) as Error & { apiError: true };
+  private async apiError(res: Response): Promise<Error & { apiError: true }> {
+    let detail = "";
+    try {
+      const body = await res.clone().json();
+      detail = body?.message || body?.error?.message || "";
+    } catch {
+      // Keep the HTTP status when the backend did not return JSON.
+    }
+    const suffix = detail ? `: ${detail}` : "";
+    const error = new Error(`Backend request failed for ${this.tableName}: HTTP ${res.status}${suffix}`) as Error & { apiError: true };
     error.apiError = true;
     return error;
   }
@@ -75,7 +83,7 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
         const res = await fetch(`${API_BASE_URL}${readEndpoint}`, {
           headers: this.getAuthHeaders(),
         });
-        if (!res.ok) throw this.apiError(res);
+        if (!res.ok) throw await this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const combined = json?.data;
@@ -120,7 +128,7 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
         const res = await fetch(`${API_BASE_URL}${endpoint}/${id}`, {
           headers: this.getAuthHeaders(),
         });
-        if (!res.ok) throw this.apiError(res);
+        if (!res.ok) throw await this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const item = json?.data !== undefined ? json.data : json;
@@ -166,7 +174,7 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
           headers: this.getAuthHeaders(),
           body: JSON.stringify(record),
         });
-        if (!res.ok) throw this.apiError(res);
+        if (!res.ok) throw await this.apiError(res);
         if (res.ok) {
           const json = await res.json();
           const inserted = json?.data !== undefined ? json.data : json;
@@ -255,7 +263,7 @@ export class HybridDbTable<T extends { id: string | number }> implements IDbTabl
         if (res.ok) {
           return true;
         }
-        throw this.apiError(res);
+        throw await this.apiError(res);
       } catch (err: any) {
         if (err?.apiError) throw err;
         throw new Error(`Database delete failed for ${this.tableName}: ${String(err?.message || err)}`);

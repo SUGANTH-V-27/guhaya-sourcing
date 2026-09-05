@@ -88,12 +88,15 @@ export default function FabricInspectionPage({
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [reports, setReports] = useState<FabricInspectionReport[]>([]);
   const [isSaved, setIsSaved] = useState(false);
+  const [reportId, setReportId] = useState(`fabric-inspection-${modelId}`);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   React.useEffect(() => {
     ModelsApi.getQcInspections(modelId, "fabric-inspection")
       .then((records) => {
         const saved = records[0] as any;
         if (!saved?.remarks) return;
+        setReportId(saved.id || `fabric-inspection-${modelId}`);
         try {
           const data = JSON.parse(saved.remarks) as FabricInspectionReport;
           setReports([data]);
@@ -226,7 +229,9 @@ export default function FabricInspectionPage({
     if (!file) return;
     let url: string;
     try {
-      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      url = await uploadModelFile(modelId, file, (progress) => {
+        setUploadProgress((current) => ({ ...current, [rollId]: progress }));
+      });
     } catch (error: any) {
       alert(error?.message || "Failed to upload roll photo.");
       return;
@@ -251,7 +256,9 @@ export default function FabricInspectionPage({
     if (!file) return;
     let url: string;
     try {
-      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      url = await uploadModelFile(modelId, file, (progress) => {
+        setUploadProgress((current) => ({ ...current, [id]: progress }));
+      });
     } catch (error: any) {
       alert(error?.message || "Failed to upload fabric inspection photo.");
       return;
@@ -317,7 +324,7 @@ export default function FabricInspectionPage({
 
     try {
       await ModelsApi.saveQcInspection({
-        id: newReport.id,
+        id: reportId,
         modelId,
         inspectionType: "fabric-inspection",
         factoryName: vendorName,
@@ -978,6 +985,7 @@ export default function FabricInspectionPage({
 
                         <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs font-bold text-teal-300 hover:bg-teal-500 hover:text-black transition">
                           <Camera size={13} /> Upload Photo
+                          {uploadProgress[roll.id] > 0 && uploadProgress[roll.id] < 100 && <span>{uploadProgress[roll.id]}%</span>}
                           <input
                             type="file"
                             accept="image/*"
@@ -1078,7 +1086,7 @@ export default function FabricInspectionPage({
                     ) : (
                       <label className="cursor-pointer flex flex-col items-center justify-center w-full h-20 rounded-lg border border-dashed border-teal-900/60 bg-black/30 hover:border-teal-500/50 hover:bg-black transition space-y-1 group">
                         <Camera size={18} className="text-teal-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] text-gray-500 group-hover:text-gray-300">Upload</span>
+                        <span className="text-[10px] text-gray-500 group-hover:text-gray-300">{uploadProgress[col.id] > 0 && uploadProgress[col.id] < 100 ? `${uploadProgress[col.id]}%` : "Upload"}</span>
                         <input
                           type="file"
                           accept="image/*"

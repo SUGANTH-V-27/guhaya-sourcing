@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -19,6 +19,7 @@ import {
   type CertificationRecord,
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
+import { uploadFile } from "@/lib/storage";
 
 const DEFAULT_FACTORIES: string[] = [];
 
@@ -31,16 +32,15 @@ export default function CreateCertificationPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [remarks, setRemarks] = useState("");
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const factoryList = useMemo(() => {
-    try {
-      const list = getFactoryList();
-      const merged = Array.from(new Set([...DEFAULT_FACTORIES, ...list]));
-      return merged;
-    } catch {
-      return DEFAULT_FACTORIES;
-    }
+  const [factoryList, setFactoryList] = useState(DEFAULT_FACTORIES);
+
+  useEffect(() => {
+    getFactoryList()
+      .then((list) => setFactoryList(Array.from(new Set([...DEFAULT_FACTORIES, ...list]))))
+      .catch(() => setFactoryList(DEFAULT_FACTORIES));
   }, []);
 
   function showToast(msg: string) {
@@ -51,6 +51,11 @@ export default function CreateCertificationPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type !== "application/pdf") {
+      showToast("Please select a PDF file");
+      return;
+    }
+    setPdfFile(file);
     setPdfFileName(file.name);
   }
 
@@ -66,6 +71,7 @@ export default function CreateCertificationPage() {
     }
 
     try {
+      const pdfUrl = pdfFile ? await uploadFile("certifications", factoryName, pdfFile) : undefined;
       await addCertification({
         factoryName,
         certificationType: certificateName,
@@ -75,7 +81,7 @@ export default function CreateCertificationPage() {
         expiryDate: expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         scope: "Garment Manufacturing",
         notes: remarks || "-",
-        pdfUrl: pdfFileName || undefined,
+        pdfUrl,
       } as any);
       router.push("/audit/certifications");
     } catch (error: any) {

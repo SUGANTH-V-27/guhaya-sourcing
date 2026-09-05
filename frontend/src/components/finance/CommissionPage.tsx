@@ -55,25 +55,49 @@ export function CommissionPage() {
         console.warn("Failed to load brands:", err);
       }
       try {
-        const commissionRecords = await financeService.getCommissions();
+        const [commissionRecords, rateRecords] = await Promise.all([
+          financeService.getCommissions(),
+          financeService.getFactoryCommissionRates(),
+        ]);
+
+        const nextRates = (rateRecords || []).map((rate: any) => ({
+          id: rate.id,
+          factory: rate.factory || rate.factoryName || "",
+          commissionPct: Number(rate.commissionPct ?? rate.commissionRatePct ?? 0) || 0,
+        }));
+
+        setFactoryRates(nextRates);
         setRows(
-          commissionRecords.map((record: any) => ({
-            id: record.id,
-            brandId: record.brandId || record.buyerBrand || "",
-            brandName: record.brandName || record.buyerBrand || "",
-            styleNo: record.styleNo || record.orderNumber || "",
-            poNo: record.poNo || record.orderNumber || "",
-            factory: record.factory || record.factoryName || "",
-            season: record.season || "",
-            intake: record.intake || "",
-            shipmentDate: record.shipmentDate || record.invoiceDate || "",
-            poValueUsd: Number(record.poValueUsd || record.orderValue) || 0,
-            quantity: Number(record.quantity) || 0,
-            commissionPct: Number(record.commissionPct || record.commissionRatePct) || 0,
-            rateInrUsd: Number(record.rateInrUsd) || 0,
-            status: record.status || (record.paymentStatus === "Paid" ? "paid" : "unpaid"),
-            invoice: record.invoice || null,
-          })),
+          commissionRecords.map((record: any) => {
+            const parsedRemarks = (() => {
+              if (!record.remarks) return {};
+              try {
+                return typeof record.remarks === "string" ? JSON.parse(record.remarks) : record.remarks;
+              } catch {
+                return {};
+              }
+            })();
+
+            const defaultRate = nextRates.find((rate) => rate.factory === (record.factory || record.factoryName || ""));
+
+            return {
+              id: record.id,
+              brandId: record.brandId || record.buyerBrand || "",
+              brandName: record.brandName || record.buyerBrand || "",
+              styleNo: record.styleNo || record.orderNumber || "",
+              poNo: record.poNo || record.orderNumber || "",
+              factory: record.factory || record.factoryName || "",
+              season: record.season || "",
+              intake: record.intake || "",
+              shipmentDate: record.shipmentDate || record.invoiceDate || "",
+              poValueUsd: Number(record.poValueUsd || record.orderValue || 0) || 0,
+              quantity: Number(record.quantity) || 0,
+              commissionPct: Number(record.commissionPct ?? record.commissionRatePct ?? defaultRate?.commissionPct ?? 0) || 0,
+              rateInrUsd: Number(record.rateInrUsd ?? parsedRemarks.rateInrUsd ?? parsedRemarks.rate ?? 90) || 90,
+              status: record.status || (record.paymentStatus === "Paid" ? "paid" : "unpaid"),
+              invoice: record.invoice || null,
+            };
+          }),
         );
       } catch (err) {
         console.warn("Failed to load commissions:", err);
@@ -134,6 +158,22 @@ export function CommissionPage() {
     return fromPos.filter((f) => !used.has(f) || editingRateId);
   }, [factoryRates, rows, editingRateId]);
 
+  useEffect(() => {
+    const defaultsByFactory = new Map(factoryRates.map((rate) => [rate.factory, rate.commissionPct]));
+    if (defaultsByFactory.size === 0) return;
+
+    setRows((prev) =>
+      prev.map((row) => {
+        const defaultPct = defaultsByFactory.get(row.factory);
+        if (defaultPct === undefined) return row;
+        if (Number(row.commissionPct) === 0) {
+          return { ...row, commissionPct: defaultPct };
+        }
+        return row;
+      }),
+    );
+  }, [factoryRates]);
+
   function updateRow(id: string, patch: Partial<CommissionPo>) {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
@@ -141,9 +181,16 @@ export function CommissionPage() {
   async function persistCommission(row: CommissionPo) {
     try {
       await financeService.updateCommission(row.id, {
+        id: row.id,
+        buyerBrand: row.brandId || row.brandName || "Brand",
+        factoryName: row.factory || "Factory",
+        orderNumber: row.poNo || row.styleNo || row.id,
+        orderValue: row.poValueUsd,
         commissionRatePct: row.commissionPct,
         commissionAmount: calcCommissionInr(row.poValueUsd, row.commissionPct, row.rateInrUsd),
-        remarks: JSON.stringify({ rateInrUsd: row.rateInrUsd }),
+        invoiceDate: row.shipmentDate || undefined,
+        paymentStatus: row.status === "paid" ? "Paid" : "Pending",
+        remarks: JSON.stringify({ rateInrUsd: row.rateInrUsd, brandName: row.brandName, factory: row.factory }),
       });
     } catch (error: any) {
       alert(error?.message || "Failed to save commission changes.");
@@ -154,52 +201,106 @@ export function CommissionPage() {
     try {
       const live = await financeService.getCommissions();
       if (live && live.length > 0) {
-        setRows(live);
+        const nextRows = live.map((record: any) => ({
+          id: record.id,
+          brandId: record.brandId || record.buyerBrand || "",
+          brandName: record.brandName || record.buyerBrand || "",
+          styleNo: record.styleNo || record.orderNumber || "",
+          poNo: record.poNo || record.orderNumber || "",
+          factory: record.factory || record.factoryName || "",
+          season: record.season || "",
+          intake: record.intake || "",
+          shipmentDate: record.shipmentDate || record.invoiceDate || "",
+          poValueUsd: Number(record.poValueUsd || record.orderValue || 0) || 0,
+          quantity: Number(record.quantity) || 0,
+          commissionPct: Number(record.commissionPct || record.commissionRatePct || 0) || 0,
+          rateInrUsd: Number(record.rateInrUsd ?? 90) || 90,
+          status: record.status || (record.paymentStatus === "Paid" ? "paid" : "unpaid"),
+          invoice: record.invoice || null,
+        }));
+
+        setRows((prev) => {
+          const defaultsByFactory = new Map(factoryRates.map((rate) => [rate.factory, rate.commissionPct]));
+          return nextRows.map((row) => {
+            const defaultPct = defaultsByFactory.get(row.factory);
+            if (defaultPct !== undefined && Number(row.commissionPct) === 0) {
+              return { ...row, commissionPct: defaultPct };
+            }
+            return row;
+          });
+        });
       }
     } catch (err) {
       console.warn("Failed to refresh commission POs:", err);
     }
   }
 
-  function saveFactoryRate() {
+  async function saveFactoryRate() {
     const pct = Number(rateDraft.commissionPct);
     if (!rateDraft.factory || !pct) return;
 
-    if (editingRateId) {
-      setFactoryRates((prev) =>
-        prev.map((r) =>
-          r.id === editingRateId ? { ...r, factory: rateDraft.factory, commissionPct: pct } : r,
-        ),
+    try {
+      const payload = {
+        id: editingRateId || undefined,
+        factoryName: rateDraft.factory,
+        commissionRatePct: pct,
+      };
+
+      const saved = await financeService.saveFactoryCommissionRate(payload);
+      const normalized = {
+        id: saved?.id || saved?.data?.id || `fr-${Date.now()}`,
+        factory: rateDraft.factory,
+        commissionPct: Number(saved?.commissionRatePct ?? saved?.data?.commissionRatePct ?? pct) || pct,
+      };
+
+      const previousRate = editingRateId
+        ? factoryRates.find((f) => f.id === editingRateId)?.commissionPct
+        : undefined;
+
+      if (editingRateId) {
+        setFactoryRates((prev) =>
+          prev.map((r) =>
+            r.id === editingRateId ? { ...r, factory: rateDraft.factory, commissionPct: normalized.commissionPct } : r,
+          ),
+        );
+      } else {
+        setFactoryRates((prev) => [...prev, normalized]);
+      }
+
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.factory !== rateDraft.factory) return row;
+          const currentPct = Number(row.commissionPct) || 0;
+          if (currentPct === 0 || (previousRate !== undefined && currentPct === previousRate)) {
+            return { ...row, commissionPct: normalized.commissionPct };
+          }
+          return row;
+        }),
       );
-    } else {
-      setFactoryRates((prev) => [...prev, { id: `fr-${Date.now()}`, factory: rateDraft.factory, commissionPct: pct }]);
+
+      setRateDraft({ factory: "", commissionPct: "" });
+      setEditingRateId(null);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save factory commission rate");
     }
+  }
 
-    setRows((prev) =>
-      prev.map((row) =>
-        row.factory === rateDraft.factory && row.commissionPct === (factoryRates.find((f) => f.id === editingRateId)?.commissionPct ?? row.commissionPct)
-          ? { ...row, commissionPct: pct }
-          : row.factory === rateDraft.factory && !editingRateId
-            ? { ...row, commissionPct: pct }
-            : row,
-      ),
-    );
-
-    setRateDraft({ factory: "", commissionPct: "" });
-    setEditingRateId(null);
+  async function deleteFactoryRate(id: string) {
+    try {
+      await financeService.deleteFactoryCommissionRate(id);
+      setFactoryRates((prev) => prev.filter((r) => r.id !== id));
+      if (editingRateId === id) {
+        setEditingRateId(null);
+        setRateDraft({ factory: "", commissionPct: "" });
+      }
+    } catch (error: any) {
+      alert(error?.message || "Failed to delete factory commission rate");
+    }
   }
 
   function editFactoryRate(rate: FactoryRate) {
     setEditingRateId(rate.id);
     setRateDraft({ factory: rate.factory, commissionPct: String(rate.commissionPct) });
-  }
-
-  function deleteFactoryRate(id: string) {
-    setFactoryRates((prev) => prev.filter((r) => r.id !== id));
-    if (editingRateId === id) {
-      setEditingRateId(null);
-      setRateDraft({ factory: "", commissionPct: "" });
-    }
   }
 
   const brandPillClass = (id: string) =>
@@ -227,9 +328,6 @@ export function CommissionPage() {
       }
     >
       <div className="mb-6">
-        <Link href="/finance" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-teal-400">
-          <ArrowLeft size={14} /> Back to Finance
-        </Link>
         <h1 className="text-3xl font-bold text-white">Commission</h1>
         <p className="mt-1 text-sm text-gray-400">Track commissions per PO across brands.</p>
 

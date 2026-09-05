@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
 import {
@@ -1176,10 +1177,13 @@ export default function CreateSocialCompliancePage() {
                     <label className="block cursor-pointer">
                       <div className="relative rounded-xl border border-gray-800 bg-black/50 overflow-hidden" style={{ paddingTop: "75%" }}>
                         {img.dataUrl ? (
-                          <img
+                          <Image
                             src={img.dataUrl}
                             alt={img.label}
+                            fill
+                            unoptimized
                             className="absolute inset-0 w-full h-full object-cover"
+                            sizes="(max-width: 640px) 50vw, 25vw"
                           />
                         ) : (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-gray-600 hover:text-teal-400 transition">
@@ -1222,7 +1226,14 @@ export default function CreateSocialCompliancePage() {
                 <div className="flex flex-wrap gap-3">
                   {criticalNcImages.map((url, i) => (
                     <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-700">
-                      <img src={url} alt="nc" className="w-full h-full object-cover" />
+                      <Image
+                        src={url}
+                        alt="Critical non-conformance"
+                        fill
+                        unoptimized
+                        className="object-cover"
+                        sizes="96px"
+                      />
                       <button
                         type="button"
                         onClick={() => setCriticalNcImages((prev) => prev.filter((_, j) => j !== i))}
@@ -1252,7 +1263,14 @@ export default function CreateSocialCompliancePage() {
                 <div className="flex flex-wrap gap-3">
                   {majorNcImages.map((url, i) => (
                     <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-700">
-                      <img src={url} alt="nc" className="w-full h-full object-cover" />
+                        <Image
+                          src={url}
+                          alt="Major non-conformance"
+                          fill
+                          unoptimized
+                          className="object-cover"
+                          sizes="96px"
+                        />
                       <button
                         type="button"
                         onClick={() => setMajorNcImages((prev) => prev.filter((_, j) => j !== i))}

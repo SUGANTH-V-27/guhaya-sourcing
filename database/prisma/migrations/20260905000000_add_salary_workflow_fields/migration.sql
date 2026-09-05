@@ -1,0 +1,6 @@
+ALTER TABLE "staff_members"
+  ADD COLUMN IF NOT EXISTS "fuelAllowance" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "vehicleMileage" DECIMAL(8, 2) NOT NULL DEFAULT 15.00;
+
+ALTER TABLE "advance_payments"
+  ADD COLUMN IF NOT EXISTS "deductionHistory" JSONB;
