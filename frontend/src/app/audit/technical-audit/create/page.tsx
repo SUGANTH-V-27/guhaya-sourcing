@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { saveOrUpdateTechnicalAudit, type TechnicalAudit } from "@/lib/audit/technical-audit-data";
+import { uploadFile } from "@/lib/storage";
 
 // Document structure for all sections in Technical Audit checklist
 export type TechDocItem = {
@@ -203,10 +204,15 @@ export default function CreateTechnicalAuditPage() {
     });
   }
 
-  function handleProofUpload(secIndex: number, itemIndex: number, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleProofUpload(secIndex: number, itemIndex: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    updateItem(secIndex, itemIndex, "proofUrl", file.name);
+    try {
+      const proofUrl = await uploadFile("technical-audits", factoryName || "unassigned", file);
+      updateItem(secIndex, itemIndex, "proofUrl", proofUrl);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload proof file.");
+    }
   }
 
   // Calculate totals

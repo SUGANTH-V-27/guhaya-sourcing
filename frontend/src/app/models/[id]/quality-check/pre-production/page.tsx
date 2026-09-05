@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi } from "@/lib/api/models-api";
+import { uploadModelFile } from "@/lib/storage";
 
 interface MeasurementRow {
   id: string;
@@ -103,12 +104,15 @@ export default function PreProductionMeetingPage({
   const [stylePhoto, setStylePhoto] = useState<string | null>(null);
   const [generalPhoto, setGeneralPhoto] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [reportId, setReportId] = useState(`pre-production-${modelId}`);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<Record<string, number>>({});
 
   React.useEffect(() => {
     ModelsApi.getQcInspections(modelId, "pre-production")
       .then((records) => {
         const saved = records[0] as any;
         if (!saved?.remarks) return;
+        setReportId(saved.id || `pre-production-${modelId}`);
         try {
           const data = JSON.parse(saved.remarks);
           if (data.brand !== undefined) setBrand(data.brand);
@@ -126,10 +130,27 @@ export default function PreProductionMeetingPage({
           if (data.measurementSections) setMeasurementSections(data.measurementSections);
           if (data.trimmings) setTrimmings(data.trimmings);
           if (data.minutesSections) setMinutesSections(data.minutesSections);
+          const savedPhotos = Array.isArray(saved.photos) ? saved.photos : [];
+          if (data.stylePhoto !== undefined || savedPhotos[0]) setStylePhoto(data.stylePhoto || savedPhotos[0] || null);
+          if (data.generalPhoto !== undefined || savedPhotos[1]) setGeneralPhoto(data.generalPhoto || savedPhotos[1] || null);
         } catch {}
       })
       .catch(() => {});
   }, [modelId]);
+
+  async function handlePhotoUpload(kind: "style" | "general", event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const url = await uploadModelFile(modelId, file, (progress) => {
+        setPhotoUploadProgress((current) => ({ ...current, [kind]: progress }));
+      });
+      if (kind === "style") setStylePhoto(url);
+      else setGeneralPhoto(url);
+    } catch (error: any) {
+      alert(error?.message || "Failed to upload meeting photo.");
+    }
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleChecklistToggle(key: string, val: boolean) {
@@ -259,7 +280,7 @@ export default function PreProductionMeetingPage({
   async function handleSave() {
     try {
       await ModelsApi.saveQcInspection({
-        id: `pre-production-${Date.now()}`,
+        id: reportId,
         modelId,
         inspectionType: "pre-production",
         factoryName,
@@ -988,7 +1009,9 @@ export default function PreProductionMeetingPage({
             <label className="flex flex-col items-center justify-center w-full h-36 rounded-2xl border-2 border-dashed border-teal-900/60 bg-black/40 hover:border-teal-500/50 hover:bg-black transition cursor-pointer space-y-2 group">
               <ImageIcon size={26} className="text-teal-400 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-medium text-gray-300">Click to upload or take photo</span>
-              <input type="file" accept="image/*" className="hidden" />
+              {stylePhoto && <img src={stylePhoto} alt="Style" className="h-16 max-w-full rounded object-cover" />}
+              {photoUploadProgress.style > 0 && photoUploadProgress.style < 100 && <span className="text-[10px] text-teal-300">Uploading {photoUploadProgress.style}%</span>}
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => handlePhotoUpload("style", event)} />
             </label>
           </div>
 
@@ -1003,7 +1026,9 @@ export default function PreProductionMeetingPage({
                 <ImageIcon size={26} className="text-teal-400 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-medium text-gray-300">Click to upload or take photo</span>
                 <span className="text-[10px] text-gray-500">PNG, JPG, WEBP</span>
-                <input type="file" accept="image/*" className="hidden" />
+                {generalPhoto && <img src={generalPhoto} alt="General inspection" className="h-16 max-w-full rounded object-cover" />}
+                {photoUploadProgress.general > 0 && photoUploadProgress.general < 100 && <span className="text-[10px] text-teal-300">Uploading {photoUploadProgress.general}%</span>}
+                <input type="file" accept="image/*" className="hidden" onChange={(event) => handlePhotoUpload("general", event)} />
               </label>
             </div>
           </div>

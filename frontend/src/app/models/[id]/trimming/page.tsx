@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   Box,
   CheckCircle2,
   ChevronDown,
@@ -18,6 +16,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { ModelsApi, ModelEntity } from "@/lib/api/models-api";
+import { ModelStatusWidget } from "@/components/cards/ModelStatusWidget";
 import { uploadModelFile } from "@/lib/storage";
 
 interface TrimmingBOMRow {
@@ -31,8 +30,20 @@ interface TrimmingBOMRow {
   referenceLayoutUrl?: string;
   actualLayoutName?: string;
   actualLayoutUrl?: string;
+  referenceLayoutType?: string;
+  actualLayoutType?: string;
   approvalStatus: "Pending" | "Approved" | "Rejected";
 }
+
+const createEmptyTrim = (index = 1): TrimmingBOMRow => ({
+  id: `trim-${Date.now()}-${index}`,
+  trimmingId: `TR-${String(index).padStart(3, "0")}`,
+  description: "",
+  quantity: "",
+  version: "",
+  optionColour: "",
+  approvalStatus: "Pending",
+});
 
 export default function ModelTrimmingPage({
   params,
@@ -59,25 +70,57 @@ export default function ModelTrimmingPage({
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploads, setUploads] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!modelId) return;
+    ModelsApi.getTrimmingBoms(modelId)
+      .then((records: any[]) => {
+        const loaded = records.map((record: any, index) => {
+          let details: any = {};
+          try { details = record.notes ? JSON.parse(record.notes) : {}; } catch {}
+          return {
+            ...createEmptyTrim(index + 1),
+            id: record.id,
+            trimmingId: details.trimmingId || `TR-${String(index + 1).padStart(3, "0")}`,
+            description: record.itemType || details.description || "",
+            quantity: String(record.requiredQty ?? details.quantity ?? ""),
+            version: record.specification || details.version || "",
+            optionColour: record.color || details.optionColour || "",
+            approvalStatus: record.approvalStatus || "Pending",
+            referenceLayoutName: details.referenceLayoutName,
+            referenceLayoutUrl: details.referenceLayoutUrl,
+            referenceLayoutType: details.referenceLayoutType,
+            actualLayoutName: details.actualLayoutName,
+            actualLayoutUrl: details.actualLayoutUrl,
+            actualLayoutType: details.actualLayoutType,
+          } as TrimmingBOMRow;
+        });
+        setTrims(loaded.length ? loaded : [createEmptyTrim()]);
+      })
+      .catch((error: any) => setSaveError(error?.message || "Failed to load trimming BOM."));
+  }, [modelId]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleCreateTrim() {
     const nextNum = trims.length + 1;
-    const newTrim: TrimmingBOMRow = {
-      id: `trim-${Date.now()}`,
-      trimmingId: `TR-${String(nextNum).padStart(3, "0")}`,
-      description: "",
-      quantity: "100",
-      version: "v1",
-      optionColour: "Black",
-      approvalStatus: "Pending",
-    };
+    const newTrim = createEmptyTrim(nextNum);
     setTrims([...trims, newTrim]);
   }
 
-  function handleDeleteTrim(id: string) {
-    if (trims.length <= 1) return;
-    setTrims(trims.filter((t) => t.id !== id));
+  async function handleDeleteTrim(id: string) {
+    if (!id.startsWith("trim-")) {
+      try {
+        await ModelsApi.deleteTrimmingBom(modelId, id);
+      } catch (error: any) {
+        setSaveError(error?.message || "Failed to delete trimming record.");
+        return;
+      }
+    }
+    setTrims((current) => {
+      const remaining = current.filter((t) => t.id !== id);
+      return remaining.length ? remaining : [createEmptyTrim()];
+    });
   }
 
   function handleUpdateTrim(id: string, field: keyof TrimmingBOMRow, value: any) {
@@ -93,19 +136,32 @@ export default function ModelTrimmingPage({
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
-    let url: string;
+    const uploadKey = `${id}-${field}`;
+    setUploads((current) => ({ ...current, [uploadKey]: 0 }));
+    let url: string | undefined;
     try {
-      url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      url = await uploadModelFile(modelId, file, (progress) => {
+        setUploads((current) => ({ ...current, [uploadKey]: progress }));
+      });
     } catch (error: any) {
       alert(error?.message || "Failed to upload layout proof.");
       return;
+    } finally {
+      setUploads((current) => {
+        const next = { ...current };
+        delete next[uploadKey];
+        return next;
+      });
+      e.target.value = "";
     }
     if (field === "referenceLayout") {
       handleUpdateTrim(id, "referenceLayoutName", file.name);
       handleUpdateTrim(id, "referenceLayoutUrl", url);
+      handleUpdateTrim(id, "referenceLayoutType", file.type);
     } else {
       handleUpdateTrim(id, "actualLayoutName", file.name);
       handleUpdateTrim(id, "actualLayoutUrl", url);
+      handleUpdateTrim(id, "actualLayoutType", file.type);
     }
   }
 
@@ -123,6 +179,19 @@ export default function ModelTrimmingPage({
             requiredQty: Number(trim.quantity) || 0,
             approvalStatus: trim.approvalStatus,
             proofImageUrl: trim.actualLayoutUrl || trim.referenceLayoutUrl,
+            notes: JSON.stringify({
+              trimmingId: trim.trimmingId,
+              description: trim.description,
+              quantity: trim.quantity,
+              version: trim.version,
+              optionColour: trim.optionColour,
+              referenceLayoutName: trim.referenceLayoutName,
+              referenceLayoutUrl: trim.referenceLayoutUrl,
+              referenceLayoutType: trim.referenceLayoutType,
+              actualLayoutName: trim.actualLayoutName,
+              actualLayoutUrl: trim.actualLayoutUrl,
+              actualLayoutType: trim.actualLayoutType,
+            }),
           })
         )
       );
@@ -153,9 +222,9 @@ export default function ModelTrimmingPage({
         )}
 
         {/* Main 2-Column Section: Trimming BOM Card (Left) + Model Image (Right) */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
           {/* Trimming BOM Card */}
-          <div className="flex-1 min-w-0 rounded-2xl border border-gray-800 bg-[#0d1414] p-6 shadow-xl space-y-5">
+          <div className="min-w-0 rounded-2xl border border-gray-800 bg-[#0d1414] p-5 shadow-xl sm:p-6">
             {/* Header */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -170,38 +239,38 @@ export default function ModelTrimmingPage({
             </div>
 
             {/* Trimming BOM Table */}
-            <div className="overflow-x-auto rounded-xl border border-gray-800/90 bg-black/40 shadow-inner">
-              <table className="w-full text-left text-xs text-gray-300">
+            <div className="overflow-hidden rounded-xl border border-gray-800/90 bg-black/40 shadow-inner">
+              <table className="w-full table-fixed text-left text-[11px] text-gray-300">
                 <thead className="border-b border-gray-800 bg-black/80 text-[11px] font-bold text-gray-400">
                   <tr>
-                    <th className="py-3 px-3 min-w-[100px]">Trimming ID</th>
-                    <th className="py-3 px-3 min-w-[150px]">Description</th>
-                    <th className="py-3 px-3 min-w-[90px]">Quantity</th>
-                    <th className="py-3 px-3 min-w-[80px]">Version</th>
-                    <th className="py-3 px-3 min-w-[120px]">Option / Colour</th>
-                    <th className="py-3 px-3 min-w-[120px] text-center">Reference Layout</th>
-                    <th className="py-3 px-3 min-w-[120px] text-center">Actual Layout</th>
-                    <th className="py-3 px-3 min-w-[110px] text-center">Approval Status</th>
-                    <th className="py-3 px-2 w-8 text-center"></th>
+                    <th className="w-[10%] px-2 py-3">Trimming ID</th>
+                    <th className="w-[20%] px-2 py-3">Description</th>
+                    <th className="w-[8%] px-2 py-3">Quantity</th>
+                    <th className="w-[8%] px-2 py-3">Version</th>
+                    <th className="w-[12%] px-2 py-3">Option / Colour</th>
+                    <th className="w-[15%] px-2 py-3 text-center">Reference Layout</th>
+                    <th className="w-[15%] px-2 py-3 text-center">Actual Layout</th>
+                    <th className="w-[9%] px-2 py-3 text-center">Approval</th>
+                    <th className="w-[3%] px-2 py-3 text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/60 font-sans">
                   {trims.map((trim) => (
                     <tr key={trim.id} className="hover:bg-gray-800/20 transition">
                       {/* Trimming ID */}
-                      <td className="py-2.5 px-3">
+                      <td className="px-2 py-2.5">
                         <input
                           type="text"
                           value={trim.trimmingId}
                           onChange={(e) =>
                             handleUpdateTrim(trim.id, "trimmingId", e.target.value)
                           }
-                          className="w-24 rounded-lg border border-gray-800 bg-[#0d1414] px-2.5 py-1.5 font-mono text-xs text-white outline-none focus:border-teal-400"
+                          className="w-full min-w-0 rounded-lg border border-gray-800 bg-[#0d1414] px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-teal-400"
                         />
                       </td>
 
                       {/* Description */}
-                      <td className="py-2.5 px-3">
+                      <td className="px-2 py-2.5">
                         <input
                           type="text"
                           value={trim.description}
@@ -214,7 +283,7 @@ export default function ModelTrimmingPage({
                       </td>
 
                       {/* Quantity */}
-                      <td className="py-2.5 px-3">
+                      <td className="px-2 py-2.5">
                         <input
                           type="text"
                           value={trim.quantity}
@@ -222,12 +291,12 @@ export default function ModelTrimmingPage({
                           onChange={(e) =>
                             handleUpdateTrim(trim.id, "quantity", e.target.value)
                           }
-                          className="w-20 rounded-lg border border-gray-800 bg-[#0d1414] px-2.5 py-1.5 font-mono text-xs text-white outline-none focus:border-teal-400"
+                          className="w-full min-w-0 rounded-lg border border-gray-800 bg-[#0d1414] px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-teal-400"
                         />
                       </td>
 
                       {/* Version */}
-                      <td className="py-2.5 px-3">
+                      <td className="px-2 py-2.5">
                         <input
                           type="text"
                           value={trim.version}
@@ -235,12 +304,12 @@ export default function ModelTrimmingPage({
                           onChange={(e) =>
                             handleUpdateTrim(trim.id, "version", e.target.value)
                           }
-                          className="w-16 rounded-lg border border-gray-800 bg-[#0d1414] px-2.5 py-1.5 font-mono text-xs text-white outline-none focus:border-teal-400"
+                          className="w-full min-w-0 rounded-lg border border-gray-800 bg-[#0d1414] px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-teal-400"
                         />
                       </td>
 
                       {/* Option / Colour */}
-                      <td className="py-2.5 px-3">
+                      <td className="px-2 py-2.5">
                         <input
                           type="text"
                           value={trim.optionColour}
@@ -248,14 +317,14 @@ export default function ModelTrimmingPage({
                           onChange={(e) =>
                             handleUpdateTrim(trim.id, "optionColour", e.target.value)
                           }
-                          className="w-28 rounded-lg border border-gray-800 bg-[#0d1414] px-2.5 py-1.5 text-xs text-white outline-none focus:border-teal-400"
+                          className="w-full min-w-0 rounded-lg border border-gray-800 bg-[#0d1414] px-2 py-1.5 text-[11px] text-white outline-none focus:border-teal-400"
                         />
                       </td>
 
                       {/* Reference Layout Upload / View */}
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         {trim.referenceLayoutName ? (
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex min-w-0 items-center justify-center gap-1.5">
                             <button
                               type="button"
                               onClick={() =>
@@ -264,9 +333,12 @@ export default function ModelTrimmingPage({
                                   name: trim.referenceLayoutName || "Reference Layout",
                                 })
                               }
-                              className="rounded bg-teal-500/10 px-2 py-1 text-[11px] font-mono text-teal-300 border border-teal-500/30 truncate max-w-[100px] hover:underline"
+                              className="flex min-w-0 items-center gap-1 rounded bg-teal-500/10 px-2 py-1 text-[11px] font-mono text-teal-300 border border-teal-500/30 truncate hover:underline"
                               title={trim.referenceLayoutName}
                             >
+                              {trim.referenceLayoutType?.startsWith("image/") && trim.referenceLayoutUrl ? (
+                                <img src={trim.referenceLayoutUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                              ) : <FileText size={14} className="shrink-0" />}
                               {trim.referenceLayoutName}
                             </button>
                             <label className="cursor-pointer text-gray-500 hover:text-teal-400">
@@ -288,12 +360,18 @@ export default function ModelTrimmingPage({
                             />
                           </label>
                         )}
+                        {uploads[`${trim.id}-referenceLayout`] !== undefined && (
+                          <div className="mx-auto mt-1 w-24" aria-live="polite">
+                            <div className="flex justify-between text-[9px] text-teal-300"><span>Uploading</span><span>{uploads[`${trim.id}-referenceLayout`]}%</span></div>
+                            <div className="h-1 overflow-hidden rounded-full bg-gray-800"><div className="h-full bg-teal-400 transition-all" style={{ width: `${uploads[`${trim.id}-referenceLayout`]}%` }} /></div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Actual Layout Upload / View */}
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         {trim.actualLayoutName ? (
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex min-w-0 items-center justify-center gap-1.5">
                             <button
                               type="button"
                               onClick={() =>
@@ -302,9 +380,12 @@ export default function ModelTrimmingPage({
                                   name: trim.actualLayoutName || "Actual Layout",
                                 })
                               }
-                              className="rounded bg-teal-500/10 px-2 py-1 text-[11px] font-mono text-teal-300 border border-teal-500/30 truncate max-w-[100px] hover:underline"
+                              className="flex min-w-0 items-center gap-1 rounded bg-teal-500/10 px-2 py-1 text-[11px] font-mono text-teal-300 border border-teal-500/30 truncate hover:underline"
                               title={trim.actualLayoutName}
                             >
+                              {trim.actualLayoutType?.startsWith("image/") && trim.actualLayoutUrl ? (
+                                <img src={trim.actualLayoutUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                              ) : <FileText size={14} className="shrink-0" />}
                               {trim.actualLayoutName}
                             </button>
                             <label className="cursor-pointer text-gray-500 hover:text-teal-400">
@@ -326,10 +407,16 @@ export default function ModelTrimmingPage({
                             />
                           </label>
                         )}
+                        {uploads[`${trim.id}-actualLayout`] !== undefined && (
+                          <div className="mx-auto mt-1 w-24" aria-live="polite">
+                            <div className="flex justify-between text-[9px] text-teal-300"><span>Uploading</span><span>{uploads[`${trim.id}-actualLayout`]}%</span></div>
+                            <div className="h-1 overflow-hidden rounded-full bg-gray-800"><div className="h-full bg-teal-400 transition-all" style={{ width: `${uploads[`${trim.id}-actualLayout`]}%` }} /></div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Approval Status Select */}
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <div className="relative inline-block">
                           <select
                             value={trim.approvalStatus}
@@ -357,11 +444,11 @@ export default function ModelTrimmingPage({
                       </td>
 
                       {/* Delete Action */}
-                      <td className="py-2.5 px-2 text-center">
+                      <td className="px-2 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => handleDeleteTrim(trim.id)}
-                          className="p-1 text-gray-600 hover:text-red-400 transition"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-red-500/10 hover:text-red-400"
                           title="Delete Trim Row"
                         >
                           <Trash2 size={15} />
@@ -386,7 +473,7 @@ export default function ModelTrimmingPage({
           </div>
 
           {/* Model Preview Card (Right Column) */}
-          <div className="w-full lg:w-72 shrink-0 rounded-2xl border border-teal-900/40 bg-[#0d1414] p-5 flex flex-col items-center justify-between shadow-xl">
+          <div className="w-full rounded-2xl border border-teal-900/40 bg-[#0d1414] p-5 shadow-xl lg:sticky lg:top-6">
             {/* Model Number */}
             <div className="w-full border-b border-teal-900/40 pb-3 text-center">
               <h2 className="text-lg font-bold font-mono text-white tracking-widest">
@@ -412,11 +499,7 @@ export default function ModelTrimmingPage({
               )}
             </div>
 
-            {/* Overdue Badge */}
-            <div className="w-full flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs font-bold text-amber-400">
-              <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-              <span>3 Days overdue!</span>
-            </div>
+            <ModelStatusWidget model={{ id: modelId, daysToHandover: currentModel?.daysToHandover }} />
           </div>
         </div>
 

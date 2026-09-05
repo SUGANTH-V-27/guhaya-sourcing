@@ -17,7 +17,11 @@ export const env = {
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-  JWT_SECRET: process.env.JWT_SECRET || "guhaya-secret-key-2026",
+  JWT_SECRET: process.env.JWT_SECRET || "",
   JWT_EXPIRE: process.env.JWT_EXPIRE || "7d",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
 };
+
+if (env.NODE_ENV === "production" && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
+  throw new Error("JWT_SECRET must be configured with at least 32 characters in production.");
+}

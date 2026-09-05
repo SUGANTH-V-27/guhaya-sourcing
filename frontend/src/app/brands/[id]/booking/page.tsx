@@ -39,7 +39,7 @@ export default function BrandBookingPage({
           BrandsApi.getBookingTrackers(brandId),
         ]);
         if (brandData) setBrand(brandData);
-        if (bookingData && bookingData.length > 0) setBookings(bookingData);
+        setBookings(bookingData || []);
       } catch (err) {
         console.warn("Failed to load booking data:", err);
       }
@@ -80,7 +80,7 @@ export default function BrandBookingPage({
   const totalConfirmed = filteredBookings.reduce((sum, b) => sum + b.confirmedQty, 0);
   const totalProjected = filteredBookings.reduce((sum, b) => sum + b.projectedQty, 0);
 
-  function handleCreateBooking() {
+  async function handleCreateBooking() {
     if (!formStyleNo.trim() || !formStyleName.trim()) return;
     const newItem: BrandBookingItem = {
       id: `bk-${Date.now()}`,
@@ -96,7 +96,13 @@ export default function BrandBookingPage({
       factoryName: formFactory,
       status: formStatus,
     };
-    setBookings([newItem, ...bookings]);
+    try {
+      await BrandsApi.saveSubpageData(brandId, "booking", newItem);
+      setBookings((prev) => [newItem, ...prev]);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save booking.");
+      return;
+    }
     setIsModalOpen(false);
     setFormStyleNo("");
     setFormStyleName("");

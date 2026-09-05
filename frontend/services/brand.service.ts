@@ -10,6 +10,10 @@ export const brandService = {
     return await api.get<Brand>(`/brands/${id}`);
   },
 
+  async getFactories() {
+    return await api.get<any[]>("/brands/factories");
+  },
+
   async createBrand(brand: Partial<Brand>): Promise<Brand> {
     return await api.post<Brand>("/brands", brand);
   },
@@ -29,6 +33,10 @@ export const brandService = {
 
   async saveSubpageData(brandId: string, subpage: string, data: any) {
     return await api.post(`/brands/${brandId}/${subpage}`, data);
+  },
+
+  async closeCaprIssue(brandId: string, recordId: string) {
+    return await api.patch(`/brands/${brandId}/capr/${recordId}/close`, {});
   },
 };
 

@@ -26,6 +26,7 @@ export type CostSheet = {
   modelName?: string;
   image?: string;
   fabricComposition: string;
+  fabricType?: string;
   gsm: string;
   currency: "INR" | "USD" | "EUR" | "GBP" | string;
   exchangeRate: number; // e.g. 87.5 for INR/USD
@@ -34,6 +35,7 @@ export type CostSheet = {
   garmentSections: GarmentSection[];
   totalCost?: number;
   finalPrice?: number;
+  totalFobPrice?: number;
   usdFinalPrice?: number;
   notes?: string;
   createdAt: string;
@@ -57,6 +59,156 @@ export const DEFAULT_GARMENT_COST_ROWS: CostingRow[] = [
   { id: "gar-6", label: "Testing & Inspection", value: 0, detail: "" },
   { id: "gar-7", label: "Freight & Forwarding", value: 0, detail: "" },
 ];
+
+function coerceNumber(value: unknown, fallback = 0): number {
+  const numeric = Number(value ?? fallback);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeCostingRows(rows: unknown, fallback: CostingRow[] = []): CostingRow[] {
+  if (!Array.isArray(rows)) return fallback;
+
+  return rows.map((row: any, index: number) => {
+    const item = row?.label ?? row?.item ?? `Row ${index + 1}`;
+    const detail = row?.detail ?? row?.notes ?? "";
+    const value = coerceNumber(row?.value ?? row?.amount ?? 0, 0);
+
+    return {
+      id: row?.id ?? `${item}-${index}`,
+      label: item,
+      value,
+      detail,
+    };
+  });
+}
+
+function normalizeGarmentSection(section: any, index: number): GarmentSection {
+  const fabricRows = normalizeCostingRows(
+    section?.fabricCostRows ?? section?.fabricRows ?? section?.fabric ?? [],
+    DEFAULT_FABRIC_COST_ROWS.map((row) => ({ ...row }))
+  );
+  const garmentRows = normalizeCostingRows(
+    section?.garmentCostRows ?? section?.garmentRows ?? section?.garment ?? [],
+    DEFAULT_GARMENT_COST_ROWS.map((row) => ({ ...row }))
+  );
+
+  return {
+    id: section?.id ?? `sec-${index + 1}`,
+    sectionName: section?.sectionName ?? section?.name ?? `Garment ${index + 1}`,
+    fabricCostRows: fabricRows,
+    wastagePercent: coerceNumber(section?.wastagePercent ?? section?.wastagePct ?? 0, 0),
+    garmentCostRows: garmentRows,
+    overheadsProfitPercent: coerceNumber(
+      section?.overheadsProfitPercent ?? section?.overheadPct ?? section?.overheadsProfit ?? 0,
+      0
+    ),
+  };
+}
+
+export function normalizeCostingRecord(raw: any): CostSheet {
+  const breakdown = raw?.breakdownJson && typeof raw.breakdownJson === "object" ? raw.breakdownJson : {};
+  const rawSections = Array.isArray(raw?.garmentSections)
+    ? raw.garmentSections
+    : Array.isArray(breakdown?.garmentSections)
+      ? breakdown.garmentSections
+      : Array.isArray(raw?.sections)
+        ? raw.sections
+        : Array.isArray(breakdown?.sections)
+          ? breakdown.sections
+          : Array.isArray(raw?.breakdownJson)
+            ? raw.breakdownJson
+            : [];
+
+  const garmentSections = rawSections.length
+    ? rawSections.map((section: any, index: number) => normalizeGarmentSection(section, index))
+    : [];
+
+  const brand = raw?.brand || breakdown?.brand || raw?.brandName || breakdown?.brandName || "Brand";
+  const name = raw?.styleName || raw?.name || breakdown?.name || "Untitled Costing";
+  const styleNo = raw?.styleCode || raw?.styleNo || breakdown?.styleNo || "STYLE";
+  const createdAt = raw?.createdAt || raw?.created_at || breakdown?.createdAt || new Date().toISOString();
+
+  return {
+    id: raw?.id || `cost-${Date.now()}`,
+    brand,
+    brandName: raw?.brandName || brand,
+    name,
+    styleNo,
+    modelCode: raw?.modelCode || breakdown?.modelCode || "",
+    modelName: raw?.modelName || breakdown?.modelName || name,
+    image: raw?.image || breakdown?.image || undefined,
+    fabricComposition: raw?.fabricComposition || breakdown?.fabricComposition || "",
+    fabricType: raw?.fabricType || breakdown?.fabricType || "",
+    gsm: raw?.gsm || breakdown?.gsm || "",
+    currency: raw?.currency || breakdown?.currency || "USD",
+    exchangeRate: coerceNumber(raw?.exchangeRate ?? breakdown?.exchangeRate ?? 0, 0),
+    targetQuantity: coerceNumber(raw?.orderQuantity ?? raw?.targetQuantity ?? breakdown?.targetQuantity ?? 0, 0),
+    garmentCount: coerceNumber(
+      raw?.garmentCount ?? breakdown?.garmentCount ?? (garmentSections.length || 1),
+      1
+    ),
+    garmentSections,
+    totalCost: coerceNumber(raw?.totalCost ?? breakdown?.totalCost ?? 0, 0),
+    finalPrice: coerceNumber(raw?.finalPrice ?? breakdown?.finalPrice ?? 0, 0),
+    totalFobPrice: coerceNumber(raw?.totalFobPrice ?? raw?.usdFinalPrice ?? breakdown?.totalFobPrice ?? breakdown?.usdFinalPrice ?? 0, 0),
+    usdFinalPrice: coerceNumber(raw?.usdFinalPrice ?? raw?.totalFobPrice ?? breakdown?.usdFinalPrice ?? breakdown?.totalFobPrice ?? 0, 0),
+    notes: raw?.notes || breakdown?.notes || "",
+    createdAt,
+    updatedAt: raw?.updatedAt || raw?.updated_at || breakdown?.updatedAt || createdAt,
+  };
+}
+
+export function serializeCostingForPersistence(costSheet: CostSheet): Record<string, any> {
+  const normalizedBreakdown = {
+    brand: costSheet.brand,
+    brandName: costSheet.brandName || costSheet.brand,
+    name: costSheet.name,
+    styleNo: costSheet.styleNo,
+    fabricComposition: costSheet.fabricComposition,
+    fabricType: costSheet.fabricType,
+    gsm: costSheet.gsm,
+    currency: costSheet.currency,
+    exchangeRate: costSheet.exchangeRate,
+    targetQuantity: costSheet.targetQuantity,
+    garmentCount: costSheet.garmentCount,
+    image: costSheet.image,
+    totalCost: costSheet.totalCost,
+    totalFobPrice: costSheet.totalFobPrice,
+    usdFinalPrice: costSheet.usdFinalPrice,
+    finalPrice: costSheet.finalPrice,
+    notes: costSheet.notes,
+    garmentSections: costSheet.garmentSections,
+  };
+
+  return {
+    id: costSheet.id,
+    brand: costSheet.brand || "Brand",
+    brandName: costSheet.brandName || costSheet.brand || "Brand",
+    styleName: costSheet.name || "Untitled Costing",
+    styleCode: costSheet.styleNo || "STYLE",
+    name: costSheet.name || "Untitled Costing",
+    modelCode: costSheet.modelCode || "",
+    modelName: costSheet.modelName || costSheet.name || "Untitled Costing",
+    fabricComposition: costSheet.fabricComposition,
+    fabricType: costSheet.fabricType,
+    gsm: costSheet.gsm,
+    currency: costSheet.currency || "USD",
+    exchangeRate: costSheet.exchangeRate,
+    targetQuantity: costSheet.targetQuantity,
+    orderQuantity: costSheet.targetQuantity || costSheet.garmentCount || 0,
+    garmentCount: costSheet.garmentCount,
+    garmentSections: costSheet.garmentSections,
+    totalCost: costSheet.totalCost,
+    totalFobPrice: costSheet.totalFobPrice,
+    usdFinalPrice: costSheet.usdFinalPrice,
+    finalPrice: costSheet.finalPrice,
+    image: costSheet.image,
+    notes: costSheet.notes,
+    breakdownJson: normalizedBreakdown,
+    createdAt: costSheet.createdAt,
+    updatedAt: costSheet.updatedAt,
+  };
+}
 
 export function createNewGarmentSection(name?: string): GarmentSection {
   return {
@@ -162,30 +314,17 @@ export async function loadCostingsAsync(): Promise<CostSheet[]> {
   try {
     const dbData = await db.costingSheets.getAll();
     if (dbData && Array.isArray(dbData)) {
-      const mapped: CostSheet[] = dbData.map((d: any) => ({
-        id: d.id,
-        brand: d.brand || "",
-        name: d.styleName || d.name || "",
-        styleNo: d.styleCode || d.styleNo || "",
-        fabricComposition: d.fabricComposition || "",
-        gsm: d.gsm || "",
-        currency: d.currency || "USD",
-        exchangeRate: Number(d.exchangeRate) || 0,
-        targetQuantity: Number(d.orderQuantity || d.targetQuantity) || 0,
-        garmentCount: Number(d.garmentCount) || 1,
-        garmentSections: Array.isArray(d.garmentSections) ? d.garmentSections : [],
-        usdFinalPrice: Number(d.totalFobPrice || d.usdFinalPrice) || 0,
-        image: d.image || undefined,
-        createdAt: d.createdAt || new Date().toISOString(),
-        updatedAt: d.updatedAt || new Date().toISOString(),
-      }));
+      const mapped: CostSheet[] = dbData.map((d: any) => normalizeCostingRecord(d));
       if (typeof window !== "undefined") {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
       }
       return mapped;
     }
-  } catch {}
-  return loadCostings();
+  } catch (error) {
+    console.warn("Failed to load costings from backend:", error);
+    return [];
+  }
+  return [];
 }
 
 export function saveCostings(costings: CostSheet[]) {
@@ -198,33 +337,25 @@ export function getCostingById(id: string): CostSheet | undefined {
   return list.find((c) => c.id === id);
 }
 
+export async function getCostingByIdAsync(id: string): Promise<CostSheet | undefined> {
+  const record = await db.costingSheets.getById(id);
+  if (!record) return undefined;
+  return normalizeCostingRecord(record);
+}
+
 export async function saveOrUpdateCosting(costSheet: CostSheet): Promise<void> {
-  const list = loadCostings();
-  const existingIdx = list.findIndex((c) => c.id === costSheet.id);
+  const persisted = serializeCostingForPersistence(costSheet);
+  const existingIdx = loadCostings().findIndex((c) => c.id === costSheet.id);
   if (existingIdx >= 0) {
-    list[existingIdx] = { ...costSheet, updatedAt: new Date().toISOString() };
-    saveCostings(list);
-    try {
-      await db.costingSheets.update(costSheet.id, costSheet);
-    } catch {}
+    await db.costingSheets.update(costSheet.id, persisted);
   } else {
-    list.unshift({
-      ...costSheet,
-      createdAt: costSheet.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    saveCostings(list);
-    try {
-      await db.costingSheets.insert(costSheet);
-    } catch {}
+    await db.costingSheets.insert(persisted);
   }
+  saveCostings([normalizeCostingRecord(persisted), ...loadCostings().filter((item) => item.id !== costSheet.id)]);
 }
 
 export async function deleteCosting(id: string): Promise<boolean> {
-  const list = loadCostings().filter((c) => c.id !== id);
-  saveCostings(list);
-  try {
-    await db.costingSheets.delete(id);
-  } catch {}
+  await db.costingSheets.delete(id);
+  saveCostings(loadCostings().filter((c) => c.id !== id));
   return true;
 }

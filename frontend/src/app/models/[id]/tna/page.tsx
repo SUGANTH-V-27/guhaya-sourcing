@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -22,7 +22,54 @@ interface TNARow {
   remarks: string;
 }
 
-const DEFAULT_TNA_ACTIVITIES: TNARow[] = [];
+const DEFAULT_TNA_ACTIVITY_NAMES = [
+  "PO Received Date",
+  "Sales Confirmation Date",
+  "TO & WCL Date",
+  "Trim Layout Approval Date",
+  "1st Sample Submission Date",
+  "Approval Date",
+  "Revised Submission Date",
+  "Approval Date (Revised)",
+  "Revised Submission 2 Date",
+  "Approval Date (Revised 2)",
+  "Sewing Trims Inhouse Date",
+  "Bulk Yarn Approval Date",
+  "Knitting Start Date",
+  "Dyeing Start Date",
+  "Rotary Print Start Date",
+  "Fabric In-House Start Date",
+  "Size Set Submission Date",
+  "Pre-Production Meeting Date",
+  "Shipment Sample Submission Date",
+  "Packing Trims Inhouse Date",
+  "Cutting Start Date",
+  "Cutting End Date",
+  "Printing / Embroidery Start Date",
+  "Printing / Embroidery End Date",
+  "Sewing Start Date",
+  "Sewing End Date",
+  "Checking Start Date",
+  "Checking End Date",
+  "Ironing Start Date",
+  "Ironing End Date",
+  "Packing Start Date",
+  "Packing End Date",
+  "1st Delivery Inspection Offer Date",
+  "1st Hand Over Date",
+  "2nd Delivery Inspection Offer Date",
+  "2nd Hand Over Date",
+  "3rd Delivery Inspection Offer Date",
+  "3rd Hand Over Date",
+];
+
+const DEFAULT_TNA_ACTIVITIES: TNARow[] = DEFAULT_TNA_ACTIVITY_NAMES.map((activity, index) => ({
+  id: `tna-default-${index + 1}`,
+  activity,
+  plannedDate: "",
+  actualDate: "",
+  remarks: "",
+}));
 
 export default function ModelTNAPage({
   params,
@@ -31,8 +78,47 @@ export default function ModelTNAPage({
 }) {
   const { id: modelId } = React.use(params);
   const [rows, setRows] = useState<TNARow[]>(DEFAULT_TNA_ACTIVITIES);
+  const [poExFactoryDate, setPoExFactoryDate] = useState("");
+  const [poSailingDate, setPoSailingDate] = useState("");
   const [isSavedAlert, setIsSavedAlert] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!modelId) return;
+    Promise.all([ModelsApi.getPurchaseOrders(modelId), ModelsApi.getTnaPlans(modelId)])
+      .then(([purchaseOrders, savedRows]) => {
+        const latestOrder = purchaseOrders[0];
+        let details: any = {};
+        try {
+          details = latestOrder?.specialInstructions ? JSON.parse(latestOrder.specialInstructions) : {};
+        } catch {
+          details = {};
+        }
+        const firstRow = Array.isArray(details.quantityRows) ? details.quantityRows[0] : null;
+        const exFactoryDate = firstRow?.exFactory ? String(firstRow.exFactory).slice(0, 10) : "";
+        setPoExFactoryDate(exFactoryDate);
+        setPoSailingDate(firstRow?.sailing ? String(firstRow.sailing).slice(0, 10) : "");
+        const normalizedRows = (savedRows as TNARow[]).map((row) => ({
+          id: row.id,
+          activity: row.activity || "",
+          plannedDate: row.plannedDate ? String(row.plannedDate).slice(0, 10) : "",
+          actualDate: row.actualDate ? String(row.actualDate).slice(0, 10) : "",
+          remarks: row.remarks || "",
+        }));
+        setRows(normalizedRows.length ? normalizedRows : DEFAULT_TNA_ACTIVITIES);
+      })
+      .catch((error: any) => setSaveError(error?.message || "Failed to load T&A plan."));
+  }, [modelId]);
+
+  const sailingDueStatus = poSailingDate
+    ? (() => {
+        const sailing = new Date(`${poSailingDate}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Math.floor((today.getTime() - sailing.getTime()) / (1000 * 60 * 60 * 24));
+        return days > 0 ? `ETD ${days} days overdue` : days === 0 ? "ETD is due today" : `ETD in ${Math.abs(days)} days`;
+      })()
+    : "ETD not set";
 
   function calculateStatus(planned: string, actual: string) {
     if (!planned || !actual) return null;
@@ -63,8 +149,16 @@ export default function ModelTNAPage({
     setRows([...rows, newRow]);
   }
 
-  function handleDeleteRow(id: string) {
+  async function handleDeleteRow(id: string) {
     if (rows.length <= 1) return;
+    if (!id.startsWith("tna-default-")) {
+      try {
+        await ModelsApi.deleteTnaPlan(modelId, id);
+      } catch (error: any) {
+        setSaveError(error?.message || "Failed to delete T&A row.");
+        return;
+      }
+    }
     setRows(rows.filter((r) => r.id !== id));
   }
 
@@ -84,6 +178,10 @@ export default function ModelTNAPage({
             modelId,
             poNumber: "",
             orderQty: 0,
+            activity: row.activity,
+            plannedDate: row.plannedDate,
+            actualDate: row.actualDate,
+            remarks: row.remarks,
             exFactoryDate: row.plannedDate || undefined,
             totalStages: 1,
             completedStages: row.actualDate ? 1 : 0,
@@ -110,6 +208,13 @@ export default function ModelTNAPage({
             </h1>
             <p className="text-xs text-gray-400 mt-0.5">
               Model: <span className="font-mono text-white font-semibold">{modelId || "5906482949644"}</span>
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              PO Ex-Factory: <span className="font-mono text-white">{poExFactoryDate || "Not set"}</span>
+              <span className="mx-2 text-gray-700">|</span>
+              ETD / Sailing: <span className="font-mono text-white">{poSailingDate || "Not set"}</span>
+              <span className="mx-2 text-gray-700">|</span>
+              <span className="font-mono text-teal-300">{sailingDueStatus}</span>
             </p>
           </div>
 

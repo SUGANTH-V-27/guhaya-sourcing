@@ -38,33 +38,41 @@ type EditableCellProps = {
   value: string;
   placeholder?: string;
   type?: "text" | "date" | "number";
+  saving?: boolean;
   onSave: (value: string) => void;
 };
 
-function EditableCell({ value, placeholder = "Click to edit", type = "text", onSave }: EditableCellProps) {
+function EditableCell({ value, placeholder = "Click to edit", type = "text", saving = false, onSave }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     setDraft(value);
   }, [value]);
 
   if (editing) {
+    const submit = (nextValue = draft) => {
+      if (submitted) return;
+      setSubmitted(true);
+      setEditing(false);
+      onSave(nextValue);
+    };
+
     return (
       <input
         autoFocus
         type={type}
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          onSave(draft);
-          setEditing(false);
+        disabled={saving}
+        onChange={(e) => {
+          const nextValue = e.target.value;
+          setDraft(nextValue);
+          if (type === "date" && nextValue) submit(nextValue);
         }}
+        onBlur={() => submit()}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            onSave(draft);
-            setEditing(false);
-          }
+          if (e.key === "Enter") submit();
           if (e.key === "Escape") {
             setDraft(value);
             setEditing(false);
@@ -78,7 +86,10 @@ function EditableCell({ value, placeholder = "Click to edit", type = "text", onS
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      onClick={() => {
+        setSubmitted(false);
+        setEditing(true);
+      }}
       className={`w-full text-left text-xs ${value ? "text-gray-300" : "italic text-gray-600"}`}
     >
       {value || placeholder}
@@ -108,13 +119,22 @@ export function InvoicesListPage() {
   const [fySuffix, setFySuffix] = useState(getDefaultFySuffix);
   const [factoryFilter, setFactoryFilter] = useState("all");
   const [showSettings, setShowSettings] = useState(false);
+  const [savingPaymentDateId, setSavingPaymentDateId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const refresh = useCallback(() => {
-    setInvoices(loadInvoices());
+  const refresh = useCallback(async () => {
+    try {
+      setLoadError(null);
+      setInvoices(await loadInvoices());
+    } catch (error: any) {
+      setLoadError(error?.message || "Failed to load invoices.");
+      throw error;
+    }
   }, []);
 
   useEffect(() => {
-    refresh();
+    refresh().catch((error) => console.warn("Failed to load invoices:", error));
   }, [refresh]);
 
   const factoryOptions = useMemo(() => {
@@ -146,8 +166,22 @@ export function InvoicesListPage() {
   const fyLabel = FY_OPTIONS.find((f) => f.suffix === fySuffix)?.label ?? `FY ${fySuffix}`;
 
   async function patchInvoice(id: string, patch: Partial<InvoiceRecord>) {
-    await updateInvoice(id, patch);
-    refresh();
+    try {
+      const normalizedPatch = Object.prototype.hasOwnProperty.call(patch, "paymentDate")
+        ? { ...patch, paymentDate: patch.paymentDate ? String(patch.paymentDate).slice(0, 10) : "" }
+        : patch;
+      if (Object.prototype.hasOwnProperty.call(patch, "paymentDate")) setSavingPaymentDateId(id);
+      setInvoices((current) => current.map((invoice) => (
+        invoice.id === id ? { ...invoice, ...normalizedPatch } : invoice
+      )));
+      await updateInvoice(id, normalizedPatch);
+      await refresh();
+      setSaveMessage("Invoice updated successfully.");
+    } catch (error: any) {
+      setSaveMessage(error?.message || "Failed to update invoice.");
+    } finally {
+      setSavingPaymentDateId(null);
+    }
   }
 
   async function handleDelete(inv: InvoiceRecord) {
@@ -191,6 +225,18 @@ export function InvoicesListPage() {
           </Link>
         </div>
       </div>
+
+      {saveMessage && (
+        <div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs text-teal-200">
+          {saveMessage}
+        </div>
+      )}
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-200">
+          {loadError}
+        </div>
+      )}
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
@@ -271,6 +317,7 @@ export function InvoicesListPage() {
                           <EditableCell
                             value={inv.paymentDate}
                             type="date"
+                            saving={savingPaymentDateId === inv.id}
                             onSave={(v) => patchInvoice(inv.id, { paymentDate: v })}
                           />
                         </td>

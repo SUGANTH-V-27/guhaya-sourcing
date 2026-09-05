@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import type { Model } from "../../types/model";
 
 const cardVariants = {
@@ -25,7 +26,14 @@ export function ModelCard({ model }: ModelCardProps) {
       className="group overflow-hidden rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.75)]"
     >
       <div className="relative overflow-hidden">
-        <img src={model.image} alt={model.name} className="h-52 w-full object-cover" />
+        <Image
+          src={model.image}
+          alt={model.name}
+          fill
+          unoptimized
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 420px"
+        />
         <span
           className={`absolute right-4 top-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeColor}`}
         >

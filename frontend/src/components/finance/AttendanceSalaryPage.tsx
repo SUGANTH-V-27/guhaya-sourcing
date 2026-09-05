@@ -38,6 +38,8 @@ const INITIAL_EMPLOYEES: Employee[] = [];
 type SalaryEntry = {
   km: number;
   salaryDate: string;
+  fuelRate?: number;
+  fuelCharge?: number;
 };
 
 type DeductionRecord = {
@@ -121,6 +123,7 @@ export function AttendanceSalaryPage() {
   const [attendance, setAttendance] = useState<Record<string, Record<number, AttendanceCode>>>({});
   const [salaryEntries, setSalaryEntries] = useState<Record<string, SalaryEntry>>({});
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [printEmployeeId, setPrintEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -151,7 +154,7 @@ export function AttendanceSalaryPage() {
             balanceRemaining: Number(record.balanceAmount || record.balanceRemaining) || 0,
             date: record.advanceDate || record.disbursedDate || "",
             description: record.reason || record.purpose || "",
-            deductHistory: [],
+            deductHistory: Array.isArray(record.deductionHistory) ? record.deductionHistory : [],
           }));
           setAdvances(loadedAdvances);
           setEmployees((current) => current.map((employee) => ({
@@ -165,7 +168,9 @@ export function AttendanceSalaryPage() {
             salaryRecords.forEach((record: any) => {
               if (next[record.staffId]) {
                 next[record.staffId] = {
-                  km: 0,
+                  km: Number(record.mileageKm) || 0,
+                  fuelRate: Number(record.fuelRate) || undefined,
+                  fuelCharge: Number(record.fuelCharge) || undefined,
                   salaryDate: record.paymentDate ? String(record.paymentDate).slice(0, 10) : "",
                 };
               }
@@ -240,6 +245,9 @@ export function AttendanceSalaryPage() {
         salaryRecords.forEach((record: any) => {
           if (next[record.staffId]) {
             next[record.staffId].salaryDate = record.paymentDate ? String(record.paymentDate).slice(0, 10) : "";
+            next[record.staffId].km = Number(record.mileageKm) || next[record.staffId].km;
+            next[record.staffId].fuelRate = Number(record.fuelRate) || next[record.staffId].fuelRate;
+            next[record.staffId].fuelCharge = Number(record.fuelCharge) || next[record.staffId].fuelCharge;
           }
         });
         return next;
@@ -332,10 +340,11 @@ export function AttendanceSalaryPage() {
       const perDay = emp.fixedSalary / 30;
       const unpaidDeduction = unpaid * perDay;
       const entry = salaryEntries[emp.id] ?? { km: 0, salaryDate: "" };
-      const fuelCharge =
+      const calculatedFuelCharge =
         emp.fuelAllowance && emp.vehicleMileage > 0
           ? (entry.km / emp.vehicleMileage) * fuelRate
           : 0;
+      const fuelCharge = entry.fuelCharge ?? calculatedFuelCharge;
       const total = emp.fixedSalary - unpaidDeduction + fuelCharge;
       const transferred = total - emp.advance;
 
@@ -369,6 +378,9 @@ export function AttendanceSalaryPage() {
         workingDays: totalDays,
         presentDays: row.attended,
         basicPay: row.emp.fixedSalary,
+        mileageKm: row.entry.km,
+        fuelRate,
+        fuelCharge: row.fuelCharge,
         advanceRecovery: row.emp.advance,
         grossSalary: row.total,
         netSalary: row.transferred,
@@ -482,15 +494,18 @@ export function AttendanceSalaryPage() {
       const updated = await financeService.updateAdvance(id, {
         amount: advance.totalAmount,
         repaidAmount: advance.totalAmount - advance.balanceRemaining + amount,
+        deductionHistory: [
+          ...advance.deductHistory,
+          { id: `ded-${Date.now()}`, date: new Date().toISOString().slice(0, 10), amount },
+        ],
       });
       const nextAdvances = advances.map((item) => item.id === id
         ? {
             ...item,
             balanceRemaining: Number(updated.balanceAmount),
-            deductHistory: [
-              ...item.deductHistory,
-              { id: `ded-${Date.now()}`, date: new Date().toISOString().slice(0, 10), amount },
-            ],
+            deductHistory: Array.isArray(updated?.deductionHistory)
+              ? updated.deductionHistory
+              : item.deductHistory,
           }
         : item);
       setAdvances(nextAdvances);
@@ -573,7 +588,28 @@ export function AttendanceSalaryPage() {
   }
 
   function exportPdf() {
-    window.print();
+    document.body.classList.remove("salary-print-single");
+    document.body.classList.add("salary-print-all");
+    setPrintEmployeeId(null);
+    window.setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove("salary-print-all");
+      }, 200);
+    }, 0);
+  }
+
+  function exportEmployeeSlip(employeeId: string) {
+    setPrintEmployeeId(employeeId);
+    document.body.classList.remove("salary-print-all");
+    document.body.classList.add("salary-print-single");
+    window.setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setPrintEmployeeId(null);
+        document.body.classList.remove("salary-print-single");
+      }, 200);
+    }, 0);
   }
 
   const pillClass = (value: SalaryTab) =>
@@ -595,7 +631,7 @@ export function AttendanceSalaryPage() {
         </>
       }
     >
-      <div className="mb-6">
+      <div className={`mb-6 ${printEmployeeId ? "salary-print-single" : ""}`}>
         <div>
           <h1 className="text-3xl font-bold text-white">Salary</h1>
           <p className="mt-1 text-sm text-gray-400">Manage salaries, allowances &amp; pay slips.</p>
@@ -657,39 +693,44 @@ export function AttendanceSalaryPage() {
               ))}
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-xs text-gray-300">
+            <div className="w-full overflow-hidden">
+              <table className="w-full table-fixed border-collapse text-[10px] text-gray-300">
+                <colgroup>
+                  <col className="w-[13%]" />
+                  {Array.from({ length: totalDays }, (_, i) => <col key={i} className="w-[2.15%]" />)}
+                  {Array.from({ length: 6 }, (_, i) => <col key={`summary-${i}`} className="w-[3.35%]" />)}
+                </colgroup>
                 <thead>
                   <tr className="border-b border-gray-800 text-left text-gray-400">
-                    <th className="sticky left-0 z-10 min-w-[160px] bg-[#0d1414] px-2 py-2">
+                    <th className="sticky left-0 z-10 truncate bg-[#0d1414] px-1 py-2">
                       Report For: {monthShort(year, month)}
                     </th>
                     {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => (
-                      <th key={day} className="min-w-[40px] px-0.5 py-2 text-center">{day}</th>
+                      <th key={day} className="px-0 py-2 text-center">{day}</th>
                     ))}
-                    <th className="px-2 py-2">Attended</th>
-                    <th className="px-2 py-2">Absent</th>
-                    <th className="px-2 py-2">Unpaid</th>
-                    <th className="px-2 py-2">Holidays</th>
-                    <th className="px-2 py-2">Half Day</th>
-                    <th className="px-2 py-2">%</th>
+                    <th className="truncate px-0 py-2 text-center" title="Attended">Att</th>
+                    <th className="truncate px-0 py-2 text-center" title="Absent">Abs</th>
+                    <th className="truncate px-0 py-2 text-center" title="Unpaid Leave">U</th>
+                    <th className="truncate px-0 py-2 text-center" title="Holidays">Hol</th>
+                    <th className="truncate px-0 py-2 text-center" title="Half Day">½</th>
+                    <th className="px-0 py-2 text-center">%</th>
                   </tr>
                 </thead>
                 <tbody>
                   {salaryRows.map((row) => (
                     <tr key={row.emp.id} className="border-b border-gray-800">
-                      <td className="sticky left-0 z-10 bg-[#0d1414] px-2 py-2 font-medium text-white">
-                        {row.emp.name}
-                        <span className="block text-[10px] font-normal text-gray-500">{row.emp.role}</span>
+                      <td className="sticky left-0 z-10 truncate bg-[#0d1414] px-1 py-2 font-medium text-white" title={`${row.emp.name} - ${row.emp.role}`}>
+                        <span className="block truncate">{row.emp.name}</span>
+                        <span className="block truncate text-[8px] font-normal text-gray-500">{row.emp.role}</span>
                       </td>
                       {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => {
                         const code = attendance[row.emp.id]?.[day] ?? "P";
                         return (
-                          <td key={day} className="px-0.5 py-1 text-center">
+                          <td key={day} className="px-0 py-1 text-center">
                             <select
                               value={code}
                               onChange={(e) => setDayCode(row.emp.id, day, e.target.value as AttendanceCode)}
-                              className={`w-9 rounded border bg-black px-0 py-1 text-center text-xs font-semibold outline-none focus:border-teal-400/60 ${CODE_COLORS[code]}`}
+                              className={`w-full min-w-0 rounded border bg-black px-0 py-1 text-[9px] font-semibold outline-none focus:border-teal-400/60 ${CODE_COLORS[code]}`}
                             >
                               {ATTENDANCE_CODES.map((c) => (
                                 <option key={c} value={c}>{c}</option>
@@ -698,12 +739,12 @@ export function AttendanceSalaryPage() {
                           </td>
                         );
                       })}
-                      <td className="px-2 py-2 text-center">{row.attended}</td>
-                      <td className="px-2 py-2 text-center">{row.absent}</td>
-                      <td className="px-2 py-2 text-center">{row.unpaid}</td>
-                      <td className="px-2 py-2 text-center">{row.holidays}</td>
-                      <td className="px-2 py-2 text-center">{row.halfDay}</td>
-                      <td className="px-2 py-2 text-center">{row.pct}%</td>
+                      <td className="truncate px-0 py-2 text-center">{row.attended}</td>
+                      <td className="truncate px-0 py-2 text-center">{row.absent}</td>
+                      <td className="truncate px-0 py-2 text-center">{row.unpaid}</td>
+                      <td className="truncate px-0 py-2 text-center">{row.holidays}</td>
+                      <td className="truncate px-0 py-2 text-center">{row.halfDay}</td>
+                      <td className="truncate px-0 py-2 text-center">{row.pct}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -737,7 +778,7 @@ export function AttendanceSalaryPage() {
                     <th className="px-2 py-2">Unpaid Leave</th>
                     <th className="px-2 py-2">km</th>
                     <th className="px-2 py-2">Fuel Allowance</th>
-                    <th className="px-2 py-2">Total</th>
+                    <th className="px-2 py-2">Total Salary</th>
                     <th className="px-2 py-2">Salary Date</th>
                     <th className="px-2 py-2">Advance</th>
                     <th className="px-2 py-2">Per Day</th>
@@ -803,7 +844,7 @@ export function AttendanceSalaryPage() {
             </div>
           </section>
 
-          {selectedRow ? (
+          {salaryRows.length > 0 ? (
             <section className="rounded-xl border border-gray-800 bg-[#0d1414] p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
@@ -811,41 +852,29 @@ export function AttendanceSalaryPage() {
                   Individual Salary Slips
                 </h2>
                 <button type="button" onClick={exportPdf} className="flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300">
-                  <FileDown size={14} /> Download PDF
+                  <FileDown size={14} /> Download All PDF
                 </button>
               </div>
 
-              <div className="mx-auto max-w-md rounded-xl border border-gray-800 bg-black/40 p-6">
-                <p className="text-center text-xl font-bold text-white">{selectedRow.emp.name}</p>
-                <p className="text-center text-sm text-gray-500">{monthShort(year, month)} Salary</p>
-                <dl className="mt-6 space-y-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <dt className="text-gray-400">Fixed Salary</dt>
-                    <dd className="text-white">{selectedRow.emp.fixedSalary.toLocaleString()}</dd>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {salaryRows.map((row) => (
+                  <div key={row.emp.id} className="rounded-xl border border-gray-800 bg-black/40 p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="flex-1 text-center text-xl font-bold text-white">{row.emp.name}</p>
+                      <button type="button" onClick={() => exportEmployeeSlip(row.emp.id)} className="no-print inline-flex shrink-0 items-center gap-1 text-xs text-teal-300 hover:text-teal-200">
+                        <FileDown size={14} /> PDF
+                      </button>
+                    </div>
+                    <p className="text-center text-sm text-gray-500">{monthShort(year, month)} Salary</p>
+                    <dl className="mt-6 space-y-4 text-sm">
+                      <div className="flex items-center justify-between"><dt className="text-gray-400">Fixed Salary</dt><dd className="text-white">{row.emp.fixedSalary.toLocaleString()}</dd></div>
+                      <div className="flex items-center justify-between"><dt className="text-gray-400">Unpaid Leave</dt><dd className="text-rose-300">-{row.unpaidDeduction.toFixed(0)}</dd></div>
+                      <div className="flex items-center justify-between"><dt className="text-gray-400">Advance</dt><dd className="text-amber-300">{row.emp.advance.toLocaleString()}</dd></div>
+                      <div className="flex items-center justify-between"><dt className="text-gray-400">Fuel Allowance</dt><dd className="text-emerald-300">+{row.fuelCharge.toFixed(0)}</dd></div>
+                      <div className="flex items-center justify-between border-t border-gray-800 pt-4 font-bold"><dt className="text-white">Transferred Amount</dt><dd className="text-teal-400">{row.transferred.toFixed(0)}</dd></div>
+                    </dl>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="flex items-center gap-2 text-gray-400">
-                      <span className="h-2 w-2 rounded-full bg-red-400" /> Unpaid Leave
-                    </dt>
-                    <dd className="text-amber-300">{selectedRow.unpaidDeduction.toFixed(0)}</dd>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="flex items-center gap-2 text-gray-400">
-                      <span className="h-2 w-2 rounded-full bg-red-400" /> Advance
-                    </dt>
-                    <dd className="text-amber-300">{selectedRow.emp.advance.toLocaleString()}</dd>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="flex items-center gap-2 text-gray-400">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400" /> Fuel Allowance
-                    </dt>
-                    <dd className="text-emerald-300">{selectedRow.fuelCharge.toFixed(0)}</dd>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-gray-800 pt-4 font-bold">
-                    <dt className="text-white">Transferred Amount</dt>
-                    <dd className="text-teal-400">{selectedRow.transferred.toFixed(0)}</dd>
-                  </div>
-                </dl>
+                ))}
               </div>
             </section>
           ) : null}
@@ -1142,6 +1171,147 @@ export function AttendanceSalaryPage() {
           </div>
         </div>
       ) : null}
+
+      <div className="salary-print-report" aria-hidden="true">
+        <section className="salary-print-page">
+          <h1>MONTHLY EMPLOYEE ATTENDANCE SHEET</h1>
+          <p>Month: {monthLabel(year, month)}</p>
+          <div className="salary-print-legend">
+            <span>P - Present</span><span>A - Absent</span><span>U - Unpaid Leave</span><span>H - Half Day</span><span>N - Holiday</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                {Array.from({ length: totalDays }, (_, i) => <th key={i}>{i + 1}</th>)}
+                <th>Attended</th>
+                <th>Absent</th>
+                <th>Unpaid</th>
+                <th>Holiday</th>
+                <th>Half</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salaryRows.map((row) => (
+                <tr key={row.emp.id}>
+                  <td>{row.emp.name}</td>
+                  <td>{row.emp.role}</td>
+                  {Array.from({ length: totalDays }, (_, i) => <td key={i}>{attendance[row.emp.id]?.[i + 1] ?? "P"}</td>)}
+                  <td>{row.attended}</td>
+                  <td>{row.absent}</td>
+                  <td>{row.unpaid}</td>
+                  <td>{row.holidays}</td>
+                  <td>{row.halfDay}</td>
+                  <td>{row.pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="salary-print-page">
+          <h1>SALARY DETAILS</h1>
+          <p>{monthLabel(year, month)}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Fixed Salary</th>
+                <th>Unpaid Leave</th>
+                <th>km</th>
+                <th>Fuel Charge</th>
+                <th>Total</th>
+                <th>Salary Date</th>
+                <th>Advance</th>
+                <th>Per Day</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salaryRows.map((row) => (
+                <tr key={row.emp.id}>
+                  <td>{row.emp.name}</td>
+                  <td>{row.emp.fixedSalary.toLocaleString()}</td>
+                  <td>{row.unpaidDeduction.toFixed(0)}</td>
+                  <td>{row.entry.km}</td>
+                  <td>{row.fuelCharge.toFixed(0)}</td>
+                  <td><strong>{row.total.toFixed(0)}</strong></td>
+                  <td>{row.entry.salaryDate || "-"}</td>
+                  <td>{row.emp.advance.toLocaleString()}</td>
+                  <td>{row.perDay.toFixed(0)}</td>
+                </tr>
+              ))}
+              <tr>
+                <th>TOTAL</th>
+                <th>{totals.fixedSalary.toLocaleString()}</th>
+                <th>{totals.unpaid.toFixed(0)}</th>
+                <th>-</th>
+                <th>{totals.fuel.toFixed(0)}</th>
+                <th>{totals.total.toFixed(0)}</th>
+                <th>-</th>
+                <th>{totals.advance.toLocaleString()}</th>
+                <th>-</th>
+              </tr>
+            </tbody>
+          </table>
+          <h2>MONTHLY STATISTICS</h2>
+          <table className="salary-print-stats">
+            <tbody>
+              <tr><td>Total working days this month</td><td>{totalDays}</td></tr>
+              <tr><td>Number of employees</td><td>{salaryRows.length}</td></tr>
+              <tr><td>Total Attended days</td><td>{salaryRows.reduce((sum, row) => sum + row.attended, 0)}</td></tr>
+              <tr><td>Absent</td><td>{salaryRows.reduce((sum, row) => sum + row.absent, 0)}</td></tr>
+              <tr><td>Total Unpaid Leave days</td><td>{salaryRows.reduce((sum, row) => sum + row.unpaid, 0)}</td></tr>
+              <tr><td>Total Holiday / Non-work days</td><td>{salaryRows.reduce((sum, row) => sum + row.holidays, 0)}</td></tr>
+              <tr><td>Half Day</td><td>{salaryRows.reduce((sum, row) => sum + row.halfDay, 0)}</td></tr>
+              <tr><td>Total Attendance Percentage</td><td>{totalDays && salaryRows.length ? Math.round((salaryRows.reduce((sum, row) => sum + row.attended, 0) / (totalDays * salaryRows.length)) * 100) : 0}%</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        {salaryRows.map((row) => (
+          <section key={row.emp.id} className="salary-print-page salary-print-slip-page">
+            <h1>INDIVIDUAL SALARY SLIP</h1>
+            <p>{row.emp.name} - {monthLabel(year, month)}</p>
+            <table className="salary-print-slip-table">
+              <thead>
+                <tr><th>Description</th><th>Amount</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Fixed Salary</td><td>{row.emp.fixedSalary.toLocaleString()}</td></tr>
+                <tr><td>Unpaid Leave</td><td>-{row.unpaidDeduction.toFixed(0)}</td></tr>
+                <tr><td>Advance</td><td>{row.emp.advance.toLocaleString()}</td></tr>
+                <tr><td>Fuel Allowance</td><td>{row.fuelCharge.toFixed(0)}</td></tr>
+                <tr><th>Transferred Amount</th><th>{row.transferred.toFixed(0)}</th></tr>
+              </tbody>
+            </table>
+          </section>
+        ))}
+      </div>
+
+      {printEmployeeId && (() => {
+        const row = salaryRows.find((item) => item.emp.id === printEmployeeId);
+        if (!row) return null;
+        return (
+          <div className="salary-print-individual" aria-hidden="true">
+            <h1>INDIVIDUAL SALARY SLIP</h1>
+            <p>{row.emp.name} - {monthLabel(year, month)}</p>
+            <table>
+              <thead>
+                <tr><th>Description</th><th>Amount</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Fixed Salary</td><td>{row.emp.fixedSalary.toLocaleString()}</td></tr>
+                <tr><td>Unpaid Leave</td><td>-{row.unpaidDeduction.toFixed(0)}</td></tr>
+                <tr><td>Advance</td><td>{row.emp.advance.toLocaleString()}</td></tr>
+                <tr><td>Fuel Allowance</td><td>{row.fuelCharge.toFixed(0)}</td></tr>
+                <tr><th>Transferred Amount</th><th>{row.transferred.toFixed(0)}</th></tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </SourcingShell>
   );
 }

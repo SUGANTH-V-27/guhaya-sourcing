@@ -13,27 +13,59 @@ export interface BrandEntity {
   logoUrl?: string;
   totalModels?: number;
   activeOrders?: number;
+  image?: string;
+  modelCount?: number;
+  brandDetails?: {
+    options: Record<string, string[]>;
+    buyerRows: Array<Record<string, string>>;
+    factories: Array<Record<string, string>>;
+  };
+}
+
+function normalizeBrand(brand: any): BrandEntity {
+  return {
+    ...brand,
+    logoUrl: brand.logoUrl || brand.image || "",
+    image: brand.image || brand.logoUrl || "",
+    totalModels: Number(brand.totalModels ?? brand.modelCount ?? 0),
+    modelCount: Number(brand.modelCount ?? brand.totalModels ?? 0),
+  };
 }
 
 export const BrandsApi = {
   async getAll(): Promise<BrandEntity[]> {
-    return await db.brands.getAll();
+    const brands = await db.brands.getAll();
+    return brands.map(normalizeBrand);
   },
 
   async getById(id: string): Promise<BrandEntity | null> {
-    return await db.brands.getById(id);
+    const brand = await db.brands.getById(id);
+    return brand ? normalizeBrand(brand) : null;
+  },
+
+  async getFactories() {
+    return await brandService.getFactories();
   },
 
   async create(brand: Omit<BrandEntity, "id"> & { id: string }): Promise<BrandEntity> {
-    return await db.brands.insert(brand);
+    return normalizeBrand(await brandService.createBrand(brand));
   },
 
   async update(id: string, updates: Partial<BrandEntity>): Promise<BrandEntity | null> {
-    return await db.brands.update(id, updates);
+    const updated = await db.brands.update(id, updates);
+    return updated ? normalizeBrand(updated) : null;
   },
 
   async delete(id: string): Promise<boolean> {
     return await db.brands.delete(id);
+  },
+
+  async saveSubpageData(brandId: string, subpage: string, data: unknown) {
+    return await brandService.saveSubpageData(brandId, subpage, data);
+  },
+
+  async closeCaprIssue(brandId: string, recordId: string) {
+    return await brandService.closeCaprIssue(brandId, recordId);
   },
 
   // Subpages

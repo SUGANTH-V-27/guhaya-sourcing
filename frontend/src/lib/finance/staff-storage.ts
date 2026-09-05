@@ -23,7 +23,7 @@ export async function loadStaffAsync(): Promise<StaffMember[]> {
     role: item.designation || item.role || "Staff",
     fixedSalary: Number(item.baseSalary || item.fixedSalary) || 0,
     vehicleMileage: Number(item.vehicleMileage) || 15,
-    fuelAllowance: Boolean(item.fuelAllowance),
+    fuelAllowance: item.fuelAllowance === true || item.fuelAllowance === "true" || item.fuelAllowance === "Yes" || item.fuelAllowance === 1,
   }));
 }
 

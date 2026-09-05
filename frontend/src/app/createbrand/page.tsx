@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Minus, Upload } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import { BrandsApi } from "@/lib/api/brands-api";
+import { uploadFile } from "@/lib/storage";
 
 type BrandColumns = {
   seasons: string[];
@@ -38,6 +39,7 @@ export default function CreateBrandPage(): JSX.Element {
 
   const [brandName, setBrandName] = useState<string>("");
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,11 +183,8 @@ export default function CreateBrandPage(): JSX.Element {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -199,19 +198,29 @@ export default function CreateBrandPage(): JSX.Element {
 
     try {
       const id = brandName.toLowerCase().replace(/[^a-z0-9]/g, "") || `brand_${Date.now()}`;
+      const logoUrl = logoFile ? await uploadFile("brands", id, logoFile) : "";
       await BrandsApi.create({
         id,
         name: brandName.trim(),
         description: `Buyer account for ${brandName.trim()}`,
-        logoUrl: logoPreview || "",
+        logoUrl,
         totalModels: 0,
         activeOrders: 0,
+        brandDetails: {
+          options: brandColumns,
+          buyerRows: rows,
+          factories: factoryRows,
+        },
       });
 
       router.push(`/brands/${id}`);
     } catch (err: any) {
       console.error("Failed to save brand:", err);
-      setError(err?.message || "Failed to save brand. Please try again.");
+      setError(
+        err?.message?.includes("File storage is not configured")
+          ? "Brand logo storage is not configured. Add Supabase values to frontend/.env.local and restart the frontend."
+          : err?.message || "Failed to save brand. Please try again."
+      );
     } finally {
       setIsSaving(false);
     }
@@ -235,7 +244,7 @@ export default function CreateBrandPage(): JSX.Element {
 
   return (
     <SourcingShell fullHeight>
-      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-7 flex flex-col gap-10">
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-5 shadow-2xl shadow-black/20 sm:p-7 lg:p-8">
         {error && (
           <div className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2.5 text-xs text-red-400 text-center">
             {error}
@@ -243,20 +252,20 @@ export default function CreateBrandPage(): JSX.Element {
         )}
 
         {/* BRAND DETAILS */}
-        <div>
-          <h2 className="text-sm text-gray-300 mb-5">Brand Details</h2>
+        <div className="space-y-5">
+          <h2 className="text-xl font-bold tracking-tight text-gray-300">Brand Details</h2>
 
-          <div className="grid grid-cols-[180px_1fr] gap-8">
+          <div className="grid gap-7 xl:grid-cols-[180px_minmax(0,1fr)]">
             {/* LEFT */}
             <div className="flex flex-col gap-4">
               <input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
                 placeholder="Brand Name"
-                className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-400"
+                className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white placeholder:text-gray-500 focus:border-teal-400 focus:outline-none"
               />
 
-              <label className="bg-black border border-teal-500/40 rounded px-3 py-8 text-sm text-gray-400 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#00BFA5] relative overflow-hidden">
+              <label className="relative flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-teal-500/40 bg-black text-sm text-gray-400 transition hover:border-[#00BFA5]">
                 {logoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoPreview} alt="Logo Preview" className="max-h-20 max-w-full object-contain" />
@@ -271,11 +280,11 @@ export default function CreateBrandPage(): JSX.Element {
             </div>
 
             {/* RIGHT */}
-            <div className="grid grid-cols-5 gap-6">
+            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-5">
               {brandConfig.map(({ key, label }) => (
                 <div key={key}>
                   <div className="flex justify-between items-center mb-3">
-                    <p className="text-xs text-gray-400">{label}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
                     <button
                       type="button"
                       onClick={() => addBrandItem(key)}
@@ -293,7 +302,7 @@ export default function CreateBrandPage(): JSX.Element {
                           onChange={(e) =>
                             handleBrandChange(key, i, e.target.value)
                           }
-                          className="w-full bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                          className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                         />
 
                         <button
@@ -313,12 +322,12 @@ export default function CreateBrandPage(): JSX.Element {
         </div>
 
         {/* BUYER DETAILS */}
-        <div>
-          <h2 className="text-sm text-gray-300 mb-5">
+        <div className="space-y-5 border-t border-[#2a2a2a] pt-8">
+          <h2 className="text-xl font-bold tracking-tight text-gray-300">
             Department &amp; Buyer Details
           </h2>
 
-          <div className="grid grid-cols-6 gap-6 mb-3">
+          <div className="hidden grid-cols-[repeat(5,minmax(0,1fr))_32px] gap-4 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400 lg:grid">
             {headers.map((h) => (
               <p key={h} className="text-xs text-gray-400">
                 {h}
@@ -329,7 +338,7 @@ export default function CreateBrandPage(): JSX.Element {
 
           <div className="flex flex-col gap-4">
             {rows.map((row, i) => (
-              <div key={i} className="grid grid-cols-6 gap-6">
+              <div key={i} className="grid gap-3 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_32px] lg:border-0 lg:bg-transparent lg:p-0">
                 {fields.map((field) => (
                   <input
                     key={field}
@@ -337,7 +346,7 @@ export default function CreateBrandPage(): JSX.Element {
                     onChange={(e) =>
                       handleChange(i, field, e.target.value)
                     }
-                    className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                    className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                   />
                 ))}
 
@@ -366,12 +375,12 @@ export default function CreateBrandPage(): JSX.Element {
         </div>
 
         {/* FACTORY DETAILS */}
-        <div>
-          <h2 className="text-sm text-gray-300 mb-5">
+        <div className="space-y-5 border-t border-[#2a2a2a] pt-8">
+          <h2 className="text-xl font-bold tracking-tight text-gray-300">
             Factory Details
           </h2>
 
-          <div className="grid grid-cols-7 gap-4 mb-3">
+          <div className="hidden grid-cols-[repeat(6,minmax(0,1fr))_32px] gap-4 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400 lg:grid">
             {[
               "Factory Code",
               "Factory",
@@ -389,27 +398,27 @@ export default function CreateBrandPage(): JSX.Element {
 
           <div className="flex flex-col gap-4">
             {factoryRows.map((row, i) => (
-              <div key={i} className="grid grid-cols-7 gap-4">
+              <div key={i} className="grid gap-3 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-3 sm:grid-cols-2 lg:grid-cols-[repeat(6,minmax(0,1fr))_32px] lg:border-0 lg:bg-transparent lg:p-0">
                 <input
                   value={row.code}
                   onChange={(e) =>
                     handleFactoryChange(i, "code", e.target.value)
                   }
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
                 <input
                   value={row.name}
                   onChange={(e) =>
                     handleFactoryChange(i, "name", e.target.value)
                   }
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
                 <input
                   value={row.address}
                   onChange={(e) =>
                     handleFactoryChange(i, "address", e.target.value)
                   }
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
                 <input
                   value={row.gstin}
@@ -417,7 +426,7 @@ export default function CreateBrandPage(): JSX.Element {
                     handleFactoryChange(i, "gstin", e.target.value)
                   }
                   placeholder="GSTIN"
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
                 <input
                   value={row.state}
@@ -425,7 +434,7 @@ export default function CreateBrandPage(): JSX.Element {
                     handleFactoryChange(i, "state", e.target.value)
                   }
                   placeholder="State"
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
                 <input
                   value={row.stateCode}
@@ -433,7 +442,7 @@ export default function CreateBrandPage(): JSX.Element {
                     handleFactoryChange(i, "stateCode", e.target.value)
                   }
                   placeholder="Code"
-                  className="bg-black border border-teal-500/40 rounded px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-teal-500/40 bg-black px-3 py-3 text-sm text-white focus:border-teal-400 focus:outline-none"
                 />
 
                 <button

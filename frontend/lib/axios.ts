@@ -1,3 +1,5 @@
+import { beginGlobalLoading, endGlobalLoading } from "@/lib/ui/loading";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api";
 
 export interface RequestOptions extends RequestInit {
@@ -45,6 +47,7 @@ class ApiClient {
     const { params, headers: customHeaders, ...fetchOptions } = options;
     const url = this.buildUrl(endpoint, params);
     const headers = this.getHeaders(customHeaders);
+    beginGlobalLoading();
 
     try {
       const response = await fetch(url, {
@@ -69,6 +72,8 @@ class ApiClient {
         console.warn(`[API] Network error communicating with ${url}. Server might be starting or offline.`, err);
       }
       throw err;
+    } finally {
+      endGlobalLoading();
     }
   }
 

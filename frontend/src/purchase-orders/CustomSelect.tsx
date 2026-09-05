@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+type CustomSelectProps = {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+};
 
-const CustomSelect = ({ label, options }: any) => {
-  const [value, setValue] = useState("");
-  const [customValue, setCustomValue] = useState("");
+const CustomSelect = ({ label, options, value, onChange }: CustomSelectProps) => {
+  const isCustomValue = value !== "" && !options.includes(value);
 
   return (
     <div>
       <select
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
+        value={isCustomValue ? "other" : value}
+        onChange={(e) => onChange(e.target.value === "other" ? "" : e.target.value)}
       >
         <option value="">{label}</option>
 
@@ -23,11 +27,11 @@ const CustomSelect = ({ label, options }: any) => {
         <option value="other">Other</option>
       </select>
 
-      {value === "other" && (
+      {isCustomValue && (
         <input
           placeholder={`Enter ${label}`}
-          value={customValue}
-          onChange={(e) => setCustomValue(e.target.value)}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           style={{ marginTop: "6px" }}
         />
       )}

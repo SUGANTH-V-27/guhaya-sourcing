@@ -6,7 +6,10 @@ import {
 } from "./invoice-utils";
 
 export function calcInvoiceLineTotal(inv: InvoiceRecord): number {
-  return inv.lineItems.reduce((s, item) => s + item.quantity * item.price, 0);
+  return inv.lineItems.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+    0,
+  );
 }
 
 export function calcInvoiceNetAmount(inv: InvoiceRecord): number {

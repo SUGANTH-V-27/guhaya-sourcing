@@ -160,12 +160,14 @@ export default function FirstGarmentOutputPage({
   ]);
 
   const [isSaved, setIsSaved] = useState(false);
+  const [reportId, setReportId] = useState(`first-garment-${modelId}`);
 
   React.useEffect(() => {
     ModelsApi.getQcInspections(modelId, "first-garment")
       .then((records) => {
         const saved = records[0] as any;
         if (!saved?.remarks) return;
+        setReportId(saved.id || `first-garment-${modelId}`);
         try {
           const data = JSON.parse(saved.remarks);
           if (Array.isArray(data.rows)) setRows(data.rows);
@@ -214,7 +216,7 @@ export default function FirstGarmentOutputPage({
   async function handleSave() {
     try {
       await ModelsApi.saveQcInspection({
-        id: `first-garment-${Date.now()}`,
+        id: reportId,
         modelId,
         inspectionType: "first-garment",
         inspectionDate: new Date().toISOString(),

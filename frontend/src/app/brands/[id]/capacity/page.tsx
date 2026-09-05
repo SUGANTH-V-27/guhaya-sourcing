@@ -37,7 +37,7 @@ export default function BrandCapacityPage({
           BrandsApi.getFactoryCapacities(brandId),
         ]);
         if (brandData) setBrand(brandData);
-        if (capacityData && capacityData.length > 0) setCapacities(capacityData);
+        setCapacities(capacityData || []);
       } catch (err) {
         console.warn("Failed to load capacity data:", err);
       }

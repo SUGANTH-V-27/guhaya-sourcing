@@ -23,18 +23,25 @@ export function CostingListPage() {
   const router = useRouter();
   const [costings, setCostings] = useState<CostSheet[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const loaded = await loadCostingsAsync();
-      setCostings(loaded || []);
+      setIsLoading(true);
+      try {
+        const loaded = await loadCostingsAsync();
+        setCostings(loaded || []);
+      } finally {
+        setIsLoading(false);
+      }
     }
     loadData();
   }, []);
 
   function showToast(msg: string) {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    window.clearTimeout((showToast as any)._timer);
+    (showToast as any)._timer = window.setTimeout(() => setToastMsg(null), 3500);
   }
 
   async function handleDelete(id: string, name: string) {
@@ -73,8 +80,9 @@ export function CostingListPage() {
       <div className="max-w-6xl mx-auto space-y-6 pb-20 text-gray-200">
         {/* Toast */}
         {toastMsg && (
-          <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-teal-600 px-4 py-2.5 text-xs font-bold text-black shadow-xl">
-            {toastMsg}
+          <div className="guhaya-toast" role="status" aria-live="polite">
+            <span className="text-emerald-300">{toastMsg}</span>
+            <button type="button" onClick={() => setToastMsg(null)} aria-label="Dismiss notification">×</button>
           </div>
         )}
 
@@ -92,7 +100,14 @@ export function CostingListPage() {
           </div>
         </div>
 
-        {/* Costing Table Card */}
+        {isLoading ? (
+          <div className="guhaya-panel p-5 text-sm text-gray-300">
+            <div className="flex items-center gap-3">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" />
+              Loading costing records...
+            </div>
+          </div>
+        ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#0d1414] shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-gray-300 border-collapse">
@@ -189,6 +204,7 @@ export function CostingListPage() {
             </table>
           </div>
         </div>
+        )}
       </div>
     </SourcingShell>
   );

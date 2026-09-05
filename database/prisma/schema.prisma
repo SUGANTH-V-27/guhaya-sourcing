@@ -30,6 +30,9 @@ model Factory {
   code                 String?                 @unique
   location             String?
   address              String?
+  gstin                String?
+  state                String?
+  stateCode            String?
   contactPerson        String?
   contactEmail         String?
   contactPhone         String?
@@ -124,6 +127,7 @@ model PurchaseOrder {
   brand               Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
   factory             Factory? @relation(fields: [factoryId], references: [id], onDelete: SetNull)
   items               PoItem[]
+  testingRequirements TestingRequirement[]
 
   @@map("purchase_orders")
 }
@@ -146,6 +150,23 @@ model PoItem {
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
   @@map("po_items")
+}
+
+model TestingRequirement {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  category        String
+  parameter       String        @default("")
+  product         String        @default("")
+  requirement     String        @default("")
+  testMethod      String        @default("")
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@map("testing_requirements")
 }
 
 model TnaPlan {
@@ -500,6 +521,16 @@ model CompanySetting {
   @@map("company_settings")
 }
 
+model FactoryCommissionRate {
+  id                String   @id @default(uuid())
+  factoryName       String   @unique
+  commissionRatePct Decimal  @default(0.00) @db.Decimal(5, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("factory_commission_rates")
+}
+
 model Invoice {
   id            String        @id @default(uuid())
   invoiceNumber String        @unique
@@ -521,6 +552,7 @@ model Invoice {
   igstAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
   grandTotal    Decimal       @default(0.00) @db.Decimal(14, 2)
   paidAmount    Decimal       @default(0.00) @db.Decimal(14, 2)
+  paymentDate   DateTime?
   balanceAmount Decimal       @default(0.00) @db.Decimal(14, 2)
   paymentStatus String        @default("Unpaid")
   notes         String?
@@ -562,6 +594,18 @@ model FactoryLedgerTransaction {
   factory         Factory? @relation(fields: [factoryId], references: [id], onDelete: SetNull)
 
   @@map("factory_ledger_transactions")
+}
+
+model FactoryLedgerOpeningBalance {
+  id             String   @id @default(uuid())
+  factoryName    String
+  fiscalYear     String
+  openingBalance Decimal  @default(0.00) @db.Decimal(14, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([factoryName, fiscalYear])
+  @@map("factory_ledger_opening_balances")
 }
 
 model MonthlyLedger {
@@ -636,6 +680,8 @@ model StaffMember {
   baseSalary    Decimal            @default(0.00) @db.Decimal(12, 2)
   hra           Decimal            @default(0.00) @db.Decimal(12, 2)
   allowances    Decimal            @default(0.00) @db.Decimal(12, 2)
+  fuelAllowance Boolean             @default(false)
+  vehicleMileage Decimal            @default(15.00) @db.Decimal(8, 2)
   bankAccount   String?
   panNumber     String?
   isActive      Boolean            @default(true)
@@ -673,6 +719,9 @@ model SalarySlip {
   basicPay        Decimal     @default(0.00) @db.Decimal(12, 2)
   hra             Decimal     @default(0.00) @db.Decimal(12, 2)
   allowances      Decimal     @default(0.00) @db.Decimal(12, 2)
+  mileageKm       Decimal     @default(0.00) @db.Decimal(10, 2)
+  fuelRate        Decimal     @default(0.00) @db.Decimal(10, 2)
+  fuelCharge      Decimal     @default(0.00) @db.Decimal(12, 2)
   overtimePay     Decimal     @default(0.00) @db.Decimal(12, 2)
   grossSalary     Decimal     @default(0.00) @db.Decimal(12, 2)
   pfDeduction     Decimal     @default(0.00) @db.Decimal(12, 2)
@@ -702,6 +751,7 @@ model AdvancePayment {
   balanceAmount    Decimal     @default(0.00) @db.Decimal(12, 2)
   status           String      @default("Active")
   reason           String?
+  deductionHistory Json?
   createdAt        DateTime    @default(now())
   staff            StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
 

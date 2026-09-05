@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { AppRouteLoader } from "@/components/ui/AppRouteLoader";
+import { AppToast } from "@/components/ui/AppToast";
+import { ThemedDatePicker } from "@/components/ui/ThemedDatePicker";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,7 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className={`${inter.className} min-h-dvh antialiased`}>{children}</body>
+      <body className={`${inter.className} min-h-dvh antialiased`}>
+        <AppRouteLoader />
+        {children}
+        <AppToast />
+        <ThemedDatePicker />
+      </body>
     </html>
   );
 }

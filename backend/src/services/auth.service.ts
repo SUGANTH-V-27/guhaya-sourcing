@@ -52,7 +52,7 @@ export class AuthService {
       email: cleanEmail,
       passwordHash: await hashPassword(data.password),
       fullName: data.fullName || cleanEmail.split("@")[0],
-      role: data.role || "Merchandiser",
+      role: "Merchandiser",
       phone: data.phone || null,
     });
 

@@ -20,6 +20,7 @@ import { ModelsApi } from "@/lib/api/models-api";
 import { uploadModelFile } from "@/lib/storage";
 
 interface MeasurementRow {
+  id: string;
   pom: string;
   tolerance: string;
   sizes: Record<string, string>;
@@ -102,7 +103,7 @@ export default function ModelMeasurementsPage({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      const url = await uploadModelFile(modelId, file);
       setChartImages((prev) => ({ ...prev, [index]: { name: file.name, url } }));
     } catch (error: any) {
       alert(error?.message || "Failed to upload measurement chart.");
@@ -113,7 +114,7 @@ export default function ModelMeasurementsPage({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const url = (await uploadModelFile(modelId, file)) || URL.createObjectURL(file);
+      const url = await uploadModelFile(modelId, file);
       setWayToMeasureImages((prev) =>
         prev.map((item, i) => (i === index ? { name: file.name, url } : item))
       );
@@ -130,6 +131,7 @@ export default function ModelMeasurementsPage({
     const defaultSizes: Record<string, string> = {};
     sizes.forEach((s) => (defaultSizes[s] = ""));
     const newRow: MeasurementRow = {
+      id: `pom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       pom: "",
       tolerance: "±1.0 cm",
       sizes: defaultSizes,
@@ -142,9 +144,9 @@ export default function ModelMeasurementsPage({
     setSpecRows(specRows.filter((_, i) => i !== index));
   }
 
-  function handleUpdateSpecRow(index: number, field: keyof MeasurementRow, value: any) {
+  function handleUpdateSpecRow(rowId: string, field: keyof MeasurementRow, value: any) {
     setSpecRows((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, [field]: value } : r))
+      prev.map((r) => (r.id === rowId ? { ...r, [field]: value } : r))
     );
   }
 
@@ -464,13 +466,13 @@ export default function ModelMeasurementsPage({
               </thead>
               <tbody className="divide-y divide-gray-800/60 font-mono">
                 {specRows.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-gray-800/20 transition">
+                  <tr key={row.id} className="hover:bg-gray-800/20 transition">
                     <td className="py-2.5 px-4 font-sans">
                       <input
                         type="text"
                         value={row.pom}
                         placeholder="e.g. Chest Width (1 inch below armhole)"
-                        onChange={(e) => handleUpdateSpecRow(idx, "pom", e.target.value)}
+                        onChange={(e) => handleUpdateSpecRow(row.id, "pom", e.target.value)}
                         className="w-full rounded border border-transparent bg-transparent px-2 py-1 text-xs text-white placeholder-gray-600 outline-none hover:border-gray-800 focus:border-teal-400 focus:bg-black"
                       />
                     </td>
@@ -479,7 +481,7 @@ export default function ModelMeasurementsPage({
                         type="text"
                         value={row.tolerance}
                         placeholder="±1.0 cm"
-                        onChange={(e) => handleUpdateSpecRow(idx, "tolerance", e.target.value)}
+                        onChange={(e) => handleUpdateSpecRow(row.id, "tolerance", e.target.value)}
                         className="w-20 rounded border border-gray-800 bg-black px-2 py-1 text-center text-xs text-amber-300 outline-none focus:border-teal-400"
                       />
                     </td>
@@ -490,7 +492,7 @@ export default function ModelMeasurementsPage({
                           value={row.sizes[s] ?? ""}
                           placeholder="0.0"
                           onChange={(e) =>
-                            handleUpdateSpecRow(idx, "sizes", {
+                            handleUpdateSpecRow(row.id, "sizes", {
                               ...row.sizes,
                               [s]: e.target.value,
                             })

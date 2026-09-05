@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SourcingShell } from "@/components/layout/SourcingShell";
 import financeService from "../../../../services/finance.service";
+import { currentMonthKey, monthKeyLabel, toMonthKey } from "@/lib/finance/period-utils";
 
 interface StaffSalaryRecord {
   id: string;
@@ -46,15 +47,13 @@ const INITIAL_STAFF: StaffSalaryRecord[] = [];
 export default function SalaryManagementPage() {
   const [records, setRecords] = useState<StaffSalaryRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toLocaleString("en-US", { month: "long", year: "numeric" })
-  );
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [selectedSlip, setSelectedSlip] = useState<StaffSalaryRecord | null>(null);
 
   useEffect(() => {
     async function loadSalaries() {
       try {
-        const data = await financeService.getSalaries();
+        const data = await financeService.getSalaries(selectedMonth);
         if (data && data.length > 0) {
           const mapped = data.map((item: any) => ({
             id: item.id,
@@ -71,7 +70,7 @@ export default function SalaryManagementPage() {
             pfDeduction: Number(item.pfDeduction) || 0,
             netPay: Number(item.netSalary) || 0,
             paymentStatus: (item.paymentStatus || "Paid") as any,
-            month: item.salaryMonth || new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+            month: item.salaryMonth || selectedMonth,
           }));
           setRecords(mapped);
         }
@@ -80,7 +79,7 @@ export default function SalaryManagementPage() {
       }
     }
     loadSalaries();
-  }, []);
+  }, [selectedMonth]);
 
   const filteredRecords = records.filter(
     (r) =>
@@ -94,10 +93,30 @@ export default function SalaryManagementPage() {
   const totalPaid = filteredRecords.filter((r) => r.paymentStatus === "Paid").reduce((s, r) => s + r.netPay, 0);
   const totalPending = filteredRecords.filter((r) => r.paymentStatus === "Pending").reduce((s, r) => s + r.netPay, 0);
 
-  function handleMarkPaid(id: string) {
-    setRecords((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, paymentStatus: "Paid" as const } : r))
-    );
+  async function handleMarkPaid(id: string) {
+    try {
+      await financeService.updateSalary(id, { paymentStatus: "Paid", paymentDate: new Date().toISOString() });
+      const data = await financeService.getSalaries(selectedMonth);
+      setRecords(data.map((item: any) => ({
+        id: item.id,
+        name: item.fullName || item.name || "Staff",
+        employeeId: item.staffCode || item.staffId || "EMP",
+        designation: item.designation || "Staff",
+        department: item.department || "Merchandising",
+        basicSalary: Number(item.basicPay) || 0,
+        hra: Number(item.hra) || 0,
+        conveyance: Number(item.allowances) || 0,
+        overtimeHours: Number(item.overtimeHours) || 0,
+        overtimePay: Number(item.overtimePay) || 0,
+        advanceDeduction: Number(item.advanceRecovery) || 0,
+        pfDeduction: Number(item.pfDeduction) || 0,
+        netPay: Number(item.netSalary) || 0,
+        paymentStatus: (item.paymentStatus || "Pending") as any,
+        month: item.salaryMonth || selectedMonth,
+      })));
+    } catch (error: any) {
+      alert(error?.message || "Failed to mark salary as paid.");
+    }
   }
 
   return (
@@ -183,9 +202,12 @@ export default function SalaryManagementPage() {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="rounded-lg border border-gray-700 bg-black px-3 py-1.5 text-sm text-white outline-none focus:border-teal-400"
               >
-                <option value="August 2026">August 2026</option>
-                <option value="July 2026">July 2026</option>
-                <option value="June 2026">June 2026</option>
+                {[...Array(12)].map((_, index) => {
+                  const now = new Date();
+                  const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+                  const key = toMonthKey(date.getFullYear(), date.getMonth() + 1);
+                  return <option key={key} value={key}>{monthKeyLabel(key)}</option>;
+                })}
               </select>
             </div>
           </div>

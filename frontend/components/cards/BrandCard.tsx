@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import type { Brand } from "../../types/brand";
 
 const cardVariants = {
@@ -32,9 +33,11 @@ export function BrandCard({ brand, isSelected = false }: BrandCardProps) {
           </p>
 
           <div className="relative w-24 h-24 overflow-hidden flex items-center justify-center">
-            <img
+            <Image
               src={brand.image}
               alt={brand.name}
+              fill
+              unoptimized
               className="w-full h-full object-contain"
             />
           </div>

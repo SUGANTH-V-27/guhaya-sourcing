@@ -40,7 +40,7 @@ export default function BrandCourierPage({
           BrandsApi.getCourierShipments(brandId),
         ]);
         if (brandData) setBrand(brandData);
-        if (courierData && courierData.length > 0) setShipments(courierData);
+        setShipments(courierData || []);
       } catch (err) {
         console.warn("Failed to load courier data:", err);
       }
@@ -77,7 +77,7 @@ export default function BrandCourierPage({
     return matchStatus && matchSearch;
   });
 
-  function handleCreateShipment() {
+  async function handleCreateShipment() {
     if (!formAwb.trim()) return;
     const newShip: CourierShipment = {
       id: `cour-${Date.now()}`,
@@ -94,7 +94,13 @@ export default function BrandCourierPage({
       status: "In Transit",
       remarks: formRemarks,
     };
-    setShipments([newShip, ...shipments]);
+    try {
+      await BrandsApi.saveSubpageData(brandId, "courier", newShip);
+      setShipments((prev) => [newShip, ...prev]);
+    } catch (error: any) {
+      alert(error?.message || "Failed to save shipment.");
+      return;
+    }
     setIsModalOpen(false);
     setFormAwb("");
   }

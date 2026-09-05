@@ -6,13 +6,15 @@ import {
   updateCosting,
   deleteCosting,
 } from "../controllers/costing.controller.js";
+import { authorize } from "../middlewares/auth.middleware.js";
 
 const router = Router();
+const costingWrite = authorize(["Admin", "Merchandiser"]);
 
 router.get("/", getCostings);
 router.get("/:id", getCostingById);
-router.post("/", createCosting);
-router.put("/:id", updateCosting);
-router.delete("/:id", deleteCosting);
+router.post("/", costingWrite, createCosting);
+router.put("/:id", costingWrite, updateCosting);
+router.delete("/:id", authorize(["Admin"]), deleteCosting);
 
 export default router;

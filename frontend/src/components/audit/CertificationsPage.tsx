@@ -23,6 +23,7 @@ import {
   type CertificationRecord,
 } from "@/lib/audit/certifications-data";
 import { getFactoryList } from "@/lib/finance/factory-ledger-data";
+import { api } from "../../../services/api";
 
 const DEFAULT_CERTS: CertificationRecord[] = [];
 
@@ -56,7 +57,11 @@ export function CertificationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCert, setEditingCert] = useState<CertificationRecord | null>(null);
 
-  const factoryList = useMemo(() => getFactoryList(), []);
+  const [factoryList, setFactoryList] = useState<string[]>([]);
+
+  useEffect(() => {
+    getFactoryList().then(setFactoryList).catch(() => setFactoryList([]));
+  }, []);
 
   // Form fields
   const [formFactory, setFormFactory] = useState("");
@@ -71,8 +76,11 @@ export function CertificationsPage() {
   const [formPdfName, setFormPdfName] = useState("");
 
   useEffect(() => {
-    const loaded = loadCertifications();
-    setCertifications(loaded);
+    const localFallback = loadCertifications();
+    setCertifications(localFallback);
+    api.get<CertificationRecord[]>("/audit/certifications")
+      .then((remote) => setCertifications(remote || []))
+      .catch(() => undefined);
   }, []);
 
   function showToast(msg: string) {
